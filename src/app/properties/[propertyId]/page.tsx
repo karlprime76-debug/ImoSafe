@@ -1,0 +1,118 @@
+import Link from "next/link";
+import { notFound } from "next/navigation";
+
+import { FavoriteButton } from "@/components/properties/FavoriteButton";
+import { PropertyGallery } from "@/components/properties/PropertyGallery";
+import { ReportButton } from "@/components/properties/ReportButton";
+import { VisitRequestForm } from "@/components/properties/VisitRequestForm";
+import { PriceTag } from "@/components/ui/PriceTag";
+import { VerificationBadge } from "@/components/ui/VerificationBadge";
+import { SiteFooter } from "@/components/site/SiteFooter";
+import { SiteHeader } from "@/components/site/SiteHeader";
+import { DEMO_PROPERTIES } from "@/lib/demoData";
+import { RecordRecent } from "@/components/properties/RecordRecent";
+
+export default function PropertyDetailPage({ params }: { params: { propertyId: string } }) {
+  const property = DEMO_PROPERTIES.find((p) => p.id === params.propertyId);
+
+  if (!property) return notFound();
+
+  return (
+    <div className="min-h-full">
+      <SiteHeader />
+
+      <RecordRecent propertyId={property.id} />
+
+      <main className="mx-auto w-full max-w-6xl px-4 py-10 sm:px-6">
+        <div className="flex flex-col gap-3">
+          <Link href="/properties" className="text-sm font-semibold text-emerald-700 hover:underline dark:text-emerald-300">
+            ← Retour aux biens
+          </Link>
+
+          <div className="grid gap-6 lg:grid-cols-[1.4fr_0.9fr]">
+            <div className="grid gap-4">
+              <PropertyGallery images={property.images} title={property.title} />
+
+              <div className="rounded-3xl border border-black/10 bg-white p-5 shadow-sm dark:border-white/10 dark:bg-white/5">
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <div className="min-w-0">
+                    <h1 className="truncate text-2xl font-extrabold tracking-tight">{property.title}</h1>
+                    <div className="mt-1 text-sm text-slate-600 dark:text-white/70">
+                      {property.city}
+                      {property.neighborhood ? ` • ${property.neighborhood}` : ""}
+                    </div>
+                  </div>
+                  <VerificationBadge status={property.verificationStatus} />
+                </div>
+
+                <div className="mt-4 flex items-end justify-between gap-3">
+                  <PriceTag amount={property.price} />
+                  <div className="text-sm font-semibold text-slate-600 dark:text-white/70">
+                    {property.transactionType === "RENT" ? "Location" : "Vente"}
+                  </div>
+                </div>
+
+                <div className="mt-4 text-sm text-slate-700 dark:text-white/70">{property.description}</div>
+
+                <div className="mt-4 grid gap-2 text-sm text-slate-700 dark:text-white/70 sm:grid-cols-3">
+                  <div className="rounded-2xl border border-black/10 bg-slate-50 p-3 dark:border-white/10 dark:bg-black/20">
+                    <div className="text-xs font-semibold">Chambres</div>
+                    <div className="mt-1 font-bold">{property.bedrooms ?? "—"}</div>
+                  </div>
+                  <div className="rounded-2xl border border-black/10 bg-slate-50 p-3 dark:border-white/10 dark:bg-black/20">
+                    <div className="text-xs font-semibold">Salles de bain</div>
+                    <div className="mt-1 font-bold">{property.bathrooms ?? "—"}</div>
+                  </div>
+                  <div className="rounded-2xl border border-black/10 bg-slate-50 p-3 dark:border-white/10 dark:bg-black/20">
+                    <div className="text-xs font-semibold">Surface</div>
+                    <div className="mt-1 font-bold">{property.area ? `${property.area} m²` : "—"}</div>
+                  </div>
+                </div>
+
+                <div className="mt-4 rounded-2xl border border-amber-600/20 bg-amber-500/10 p-4 text-sm text-amber-900 ring-1 ring-amber-600/20 dark:border-amber-400/20 dark:text-amber-100 dark:ring-amber-400/20">
+                  <div className="font-semibold">Conseil sécurité</div>
+                  <div className="mt-1">Ne payez jamais avant d’avoir visité et vérifié.</div>
+                </div>
+              </div>
+            </div>
+
+            <div className="grid gap-4">
+              <div className="rounded-3xl border border-black/10 bg-white p-5 shadow-sm dark:border-white/10 dark:bg-white/5">
+                <div className="flex items-center justify-between gap-3">
+                  <div>
+                    <div className="text-sm font-extrabold">Demander une visite</div>
+                    <div className="mt-1 text-xs text-slate-600 dark:text-white/70">
+                      Une demande = plus de traçabilité et moins de risques.
+                    </div>
+                  </div>
+                  <VerificationBadge status={property.verificationStatus} />
+                </div>
+
+                <div className="mt-4">
+                  <VisitRequestForm propertyId={property.id} />
+                </div>
+
+                <div className="mt-4 grid gap-2">
+                  <FavoriteButton propertyId={property.id} />
+                  <ReportButton propertyId={property.id} />
+                </div>
+              </div>
+
+              <div className="rounded-3xl border border-black/10 bg-white p-5 text-sm text-slate-700 shadow-sm dark:border-white/10 dark:bg-white/5 dark:text-white/70">
+                <div className="font-semibold">Publié par</div>
+                <div className="mt-1">
+                  {property.postedBy.kind === "agency" ? "Agence" : "Propriétaire"} • {property.postedBy.name}
+                </div>
+                <div className="mt-3 text-xs">
+                  Badge: <span className="font-semibold">{property.verificationStatus}</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </main>
+
+      <SiteFooter />
+    </div>
+  );
+}

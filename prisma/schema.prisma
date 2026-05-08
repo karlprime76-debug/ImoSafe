@@ -1,0 +1,208 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Get a free hosted Postgres database in seconds: `npx create-db`
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserRole {
+  USER
+  OWNER
+  AGENCY
+  ADMIN
+}
+
+enum PropertyType {
+  HOUSE
+  APARTMENT
+  LAND
+  OFFICE
+  SHOP
+  WAREHOUSE
+}
+
+enum TransactionType {
+  RENT
+  SALE
+}
+
+enum PropertyStatus {
+  AVAILABLE
+  RESERVED
+  RENTED
+  SOLD
+  HIDDEN
+}
+
+enum VerificationStatus {
+  NOT_VERIFIED
+  PENDING
+  VERIFIED
+  REJECTED
+  SUSPICIOUS
+}
+
+enum VisitRequestStatus {
+  PENDING
+  ACCEPTED
+  DECLINED
+  CANCELED
+}
+
+enum ScamReportStatus {
+  OPEN
+  IN_REVIEW
+  RESOLVED
+  REJECTED
+}
+
+enum DocumentType {
+  ID
+  TITLE_DEED
+  LEASE
+  AGENCY_LICENSE
+  OTHER
+}
+
+model User {
+  id           String   @id @default(cuid())
+  name         String
+  email        String   @unique
+  passwordHash String
+  role         UserRole @default(USER)
+  phone        String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  propertiesOwned Property[]     @relation("PropertyOwner")
+  agencies        Agency[]
+  favorites       Favorite[]
+  visitRequests   VisitRequest[]
+  scamReports     ScamReport[]
+}
+
+model Agency {
+  id                 String             @id @default(cuid())
+  name               String
+  phone              String?
+  email              String?
+  address            String?
+  verificationStatus VerificationStatus @default(NOT_VERIFIED)
+  ownerId            String
+  owner              User               @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  createdAt          DateTime           @default(now())
+
+  properties Property[]
+
+  @@index([ownerId])
+  @@index([verificationStatus])
+}
+
+model Property {
+  id                 String             @id @default(cuid())
+  title              String
+  description        String
+  type               PropertyType
+  transactionType    TransactionType
+  price              Int
+  city               String
+  neighborhood       String?
+  address            String?
+  bedrooms           Int?
+  bathrooms          Int?
+  area               Int?
+  images             String[]
+  status             PropertyStatus     @default(AVAILABLE)
+  verificationStatus VerificationStatus @default(NOT_VERIFIED)
+
+  ownerId String?
+  owner   User?   @relation("PropertyOwner", fields: [ownerId], references: [id], onDelete: SetNull)
+
+  agencyId String?
+  agency   Agency? @relation(fields: [agencyId], references: [id], onDelete: SetNull)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  favorites     Favorite[]
+  visitRequests VisitRequest[]
+  scamReports   ScamReport[]
+  documents     Document[]
+
+  @@index([city])
+  @@index([type])
+  @@index([transactionType])
+  @@index([verificationStatus])
+  @@index([status])
+}
+
+model Favorite {
+  id         String   @id @default(cuid())
+  userId     String
+  propertyId String
+
+  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  property Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, propertyId])
+  @@index([userId])
+  @@index([propertyId])
+}
+
+model VisitRequest {
+  id            String             @id @default(cuid())
+  userId        String
+  propertyId    String
+  preferredDate DateTime?
+  preferredTime String?
+  message       String?
+  status        VisitRequestStatus @default(PENDING)
+
+  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  property Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@index([propertyId])
+  @@index([status])
+}
+
+model ScamReport {
+  id             String           @id @default(cuid())
+  userId         String?
+  propertyId     String?
+  reason         String
+  description    String?
+  phoneOrContact String?
+  status         ScamReportStatus @default(OPEN)
+  createdAt      DateTime         @default(now())
+
+  user     User?     @relation(fields: [userId], references: [id], onDelete: SetNull)
+  property Property? @relation(fields: [propertyId], references: [id], onDelete: SetNull)
+
+  @@index([status])
+  @@index([createdAt])
+}
+
+model Document {
+  id                 String             @id @default(cuid())
+  propertyId          String
+  type               DocumentType
+  fileUrl             String
+  verificationStatus VerificationStatus @default(PENDING)
+  createdAt          DateTime           @default(now())
+
+  property Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+
+  @@index([propertyId])
+  @@index([verificationStatus])
+}
