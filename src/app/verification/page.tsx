@@ -3,6 +3,7 @@ import Link from "next/link";
 import { SiteFooter } from "@/components/site/SiteFooter";
 import { SiteHeader } from "@/components/site/SiteHeader";
 import { StatusBadge } from "@/components/ui/StatusBadge";
+import { IMOSAFE_CONTACT } from "@/lib/imosafeContact";
 
 export default function VerificationPage() {
   return (
@@ -73,6 +74,28 @@ export default function VerificationPage() {
               <ActionLink href="/report-scam" label="Signaler une annonce suspecte" tone="danger" />
               <ActionLink href="/properties" label="Voir les annonces" tone="neutral" />
               <ActionLink href="/stays" label="Voir les séjours" tone="neutral" />
+            </div>
+            <div className="mt-4 grid gap-2 sm:grid-cols-2">
+              <a
+                href={IMOSAFE_CONTACT.whatsappUrl}
+                target="_blank"
+                rel="noreferrer"
+                className="inline-flex h-11 items-center justify-center rounded-2xl bg-[#0B2A4A] px-4 text-sm font-semibold text-white shadow-sm transition hover:opacity-95"
+              >
+                Contacter sur WhatsApp
+              </a>
+              <div className="inline-flex h-11 items-center justify-center rounded-2xl border border-black/10 bg-white px-4 text-sm font-semibold text-slate-900 shadow-sm dark:border-white/10 dark:bg-white/5 dark:text-white">
+                Email: {IMOSAFE_CONTACT.email}
+              </div>
+            </div>
+
+
+            <div className="mt-4 grid gap-2 sm:grid-cols-2">
+              <ActionLink href="/partners" label="Devenir partenaire" tone="neutral" />
+              <ActionLink href="/payment-manual" label="Activation manuelle" tone="neutral" />
+              <ActionLink href="/terms" label="Conditions" tone="neutral" />
+              <ActionLink href="/privacy" label="Confidentialité" tone="neutral" />
+              <ActionLink href="/safety-rules" label="Règles de sécurité" tone="neutral" />
             </div>
           </div>
         </div>

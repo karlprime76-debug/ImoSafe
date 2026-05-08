@@ -66,6 +66,18 @@ export type VerificationRequestStoreItem = {
   status: "PENDING" | "IN_REVIEW" | "DONE";
 };
 
+export type ManualPaymentRequestStoreItem = {
+  id: string;
+  fullName: string;
+  whatsAppPhone: string;
+  email?: string;
+  offer: "AGENCE_PRO" | "HOST_STAYS_PRO" | "PREMIUM_USER" | "VERIFICATION" | "BOOST_LISTING";
+  message?: string;
+  proofHint?: string;
+  createdAt: string;
+  status: "PENDING" | "IN_REVIEW" | "ACTIVATED" | "REJECTED";
+};
+
 export type RecentStore = { propertyIds: string[] };
 
 function safeParse<T>(raw: string | null): T | null {
@@ -190,6 +202,27 @@ export function addVerificationRequest(
   const next = [item, ...list].slice(0, 100);
   window.localStorage.setItem(getKey("verificationRequests"), JSON.stringify(next));
   window.dispatchEvent(new Event("imosafe:verificationRequests"));
+  return item;
+}
+
+export function getManualPaymentRequests(): ManualPaymentRequestStoreItem[] {
+  if (typeof window === "undefined") return [];
+  return safeParse<ManualPaymentRequestStoreItem[]>(window.localStorage.getItem(getKey("manualPaymentRequests"))) ?? [];
+}
+
+export function addManualPaymentRequest(
+  input: Omit<ManualPaymentRequestStoreItem, "id" | "createdAt" | "status">
+): ManualPaymentRequestStoreItem {
+  const list = getManualPaymentRequests();
+  const item: ManualPaymentRequestStoreItem = {
+    ...input,
+    id: `mpr_${Math.random().toString(16).slice(2)}`,
+    createdAt: new Date().toISOString(),
+    status: "PENDING",
+  };
+  const next = [item, ...list].slice(0, 100);
+  window.localStorage.setItem(getKey("manualPaymentRequests"), JSON.stringify(next));
+  window.dispatchEvent(new Event("imosafe:manualPaymentRequests"));
   return item;
 }
 

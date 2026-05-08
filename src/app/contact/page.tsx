@@ -1,5 +1,6 @@
 import { SiteFooter } from "@/components/site/SiteFooter";
 import { SiteHeader } from "@/components/site/SiteHeader";
+import { IMOSAFE_CONTACT } from "@/lib/imosafeContact";
 
 export default function ContactPage() {
   return (
@@ -13,7 +14,7 @@ export default function ContactPage() {
 
         <div className="mt-6 rounded-3xl border border-black/10 bg-white p-6 text-sm text-slate-700 shadow-sm dark:border-white/10 dark:bg-white/5 dark:text-white/70">
           <div className="font-semibold">Email</div>
-          <div className="mt-1">support@imosafe.example</div>
+          <div className="mt-1">{IMOSAFE_CONTACT.email}</div>
           <div className="mt-4 text-xs text-slate-500 dark:text-white/50">
             (MVP: contact mock. On branchera un formulaire + email plus tard.)
           </div>

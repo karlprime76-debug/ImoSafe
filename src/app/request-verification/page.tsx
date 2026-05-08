@@ -6,6 +6,7 @@ import { useState } from "react";
 import { SiteFooter } from "@/components/site/SiteFooter";
 import { SiteHeader } from "@/components/site/SiteHeader";
 import { StatusBadge } from "@/components/ui/StatusBadge";
+import { IMOSAFE_CONTACT } from "@/lib/imosafeContact";
 import { addVerificationRequest } from "@/lib/mockDataStore";
 
 const KINDS = [
@@ -197,6 +198,32 @@ export default function RequestVerificationPage() {
             <div className="rounded-3xl border border-amber-600/20 bg-amber-500/10 p-6 text-sm text-amber-950 ring-1 ring-amber-600/20 dark:border-amber-400/20 dark:text-amber-100 dark:ring-amber-400/20">
               <div className="font-extrabold">Rappel</div>
               <div className="mt-2">Ne payez jamais avant visite ou vérification. Si un vendeur met la pression: prudence.</div>
+            </div>
+
+            <div className="rounded-3xl border border-black/10 bg-white p-6 text-sm text-slate-700 shadow-sm dark:border-white/10 dark:bg-white/5 dark:text-white/70">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div className="font-extrabold">Contact ImoSafe</div>
+                <StatusBadge tone="neutral">Support</StatusBadge>
+              </div>
+              <div className="mt-3 grid gap-1 text-sm">
+                <div>
+                  WhatsApp: <span className="font-semibold">{IMOSAFE_CONTACT.whatsapp}</span>
+                </div>
+                <div>
+                  Email: <span className="font-semibold">{IMOSAFE_CONTACT.email}</span>
+                </div>
+              </div>
+              <a
+                href={IMOSAFE_CONTACT.whatsappUrl}
+                target="_blank"
+                rel="noreferrer"
+                className="mt-4 inline-flex h-11 w-full items-center justify-center rounded-2xl bg-emerald-600 px-4 text-sm font-semibold text-white shadow-sm transition hover:opacity-95"
+              >
+                Contacter sur WhatsApp
+              </a>
+              <div className="mt-3 text-xs text-slate-500 dark:text-white/50">
+                (Tarifs indicatifs / lancement. Paiement automatique pas encore branché.)
+              </div>
             </div>
           </div>
         </div>

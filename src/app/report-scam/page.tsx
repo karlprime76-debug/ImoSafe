@@ -5,6 +5,7 @@ import { useMemo, useState } from "react";
 import { SiteFooter } from "@/components/site/SiteFooter";
 import { SiteHeader } from "@/components/site/SiteHeader";
 import { ScamReportBadge } from "@/components/ui/ScamReportBadge";
+import { IMOSAFE_CONTACT } from "@/lib/imosafeContact";
 import { addScamReport } from "@/lib/mockDataStore";
 
 export default function ReportScamPage({
@@ -140,6 +141,26 @@ export default function ReportScamPage({
               </div>
             </form>
           )}
+        </div>
+
+        <div className="mt-6 rounded-3xl border border-black/10 bg-white p-6 text-sm text-slate-700 shadow-sm dark:border-white/10 dark:bg-white/5 dark:text-white/70">
+          <div className="font-semibold">Contact ImoSafe</div>
+          <div className="mt-2 grid gap-1 text-sm">
+            <div>
+              WhatsApp: <span className="font-semibold">{IMOSAFE_CONTACT.whatsapp}</span>
+            </div>
+            <div>
+              Email: <span className="font-semibold">{IMOSAFE_CONTACT.email}</span>
+            </div>
+          </div>
+          <a
+            href={IMOSAFE_CONTACT.whatsappUrl}
+            target="_blank"
+            rel="noreferrer"
+            className="mt-4 inline-flex h-11 w-full items-center justify-center rounded-2xl bg-emerald-600 px-4 text-sm font-semibold text-white shadow-sm transition hover:opacity-95 sm:w-auto"
+          >
+            Contacter sur WhatsApp
+          </a>
         </div>
       </main>
 

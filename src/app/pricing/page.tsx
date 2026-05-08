@@ -4,6 +4,7 @@ import Image from "next/image";
 import { SiteFooter } from "@/components/site/SiteFooter";
 import { SiteHeader } from "@/components/site/SiteHeader";
 import { StatusBadge } from "@/components/ui/StatusBadge";
+import { IMOSAFE_CONTACT } from "@/lib/imosafeContact";
 
 export default function PricingPage() {
   return (
@@ -135,6 +136,14 @@ export default function PricingPage() {
             >
               Demander une vérification
             </Link>
+            <a
+              href={IMOSAFE_CONTACT.whatsappUrl}
+              target="_blank"
+              rel="noreferrer"
+              className="inline-flex h-11 items-center justify-center rounded-2xl bg-[#0B2A4A] px-4 text-sm font-semibold text-white shadow-sm transition hover:opacity-95"
+            >
+              Contacter sur WhatsApp
+            </a>
             <Link
               href="/verification"
               className="inline-flex h-11 items-center justify-center rounded-2xl border border-black/10 bg-white px-4 text-sm font-semibold text-slate-900 shadow-sm transition hover:bg-slate-50 dark:border-white/10 dark:bg-white/5 dark:text-white dark:hover:bg-white/10"
@@ -148,6 +157,7 @@ export default function PricingPage() {
               Découvrir Séjours
             </Link>
           </div>
+          <div className="mt-4 text-xs text-slate-500 dark:text-white/50">Email: {IMOSAFE_CONTACT.email}</div>
         </div>
 
         <div className="mt-10 grid gap-4 lg:grid-cols-3">
@@ -182,6 +192,27 @@ export default function PricingPage() {
         <div className="mt-10 rounded-3xl border border-amber-600/20 bg-amber-500/10 p-6 text-sm text-amber-950 ring-1 ring-amber-600/20 dark:border-amber-400/20 dark:text-amber-100 dark:ring-amber-400/20">
           <div className="font-extrabold">Conseil sécurité</div>
           <div className="mt-1">Ne payez jamais avant d’avoir visité et vérifié. Signalez toute demande d’argent suspecte.</div>
+        </div>
+
+        <div className="mt-6 rounded-3xl border border-black/10 bg-white p-6 text-sm text-slate-700 shadow-sm dark:border-white/10 dark:bg-white/5 dark:text-white/70">
+          <div className="text-base font-extrabold tracking-tight">Liens utiles</div>
+          <div className="mt-4 grid gap-2 sm:grid-cols-2">
+            <Link href="/partners" className="font-semibold text-emerald-700 hover:underline dark:text-emerald-300">
+              Devenir partenaire
+            </Link>
+            <Link href="/payment-manual" className="font-semibold text-emerald-700 hover:underline dark:text-emerald-300">
+              Activation manuelle d’une offre
+            </Link>
+            <Link href="/terms" className="font-semibold text-emerald-700 hover:underline dark:text-emerald-300">
+              Conditions d’utilisation
+            </Link>
+            <Link href="/privacy" className="font-semibold text-emerald-700 hover:underline dark:text-emerald-300">
+              Politique de confidentialité
+            </Link>
+            <Link href="/safety-rules" className="font-semibold text-emerald-700 hover:underline dark:text-emerald-300">
+              Règles de sécurité
+            </Link>
+          </div>
         </div>
       </main>
 
