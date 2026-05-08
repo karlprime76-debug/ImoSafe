@@ -3,10 +3,12 @@ import Link from "next/link";
 import type { Property } from "@/lib/demoData";
 import { cn } from "@/lib/utils";
 import { PriceTag } from "@/components/ui/PriceTag";
+import { TrustScoreBadge } from "@/components/ui/TrustScoreBadge";
 import { VerificationBadge } from "@/components/ui/VerificationBadge";
 
 export function PropertyCard({ property, className }: { property: Property; className?: string }) {
   const cover = property.images[0] ?? "";
+  const trustScore = (property as unknown as { trustScore?: number }).trustScore;
 
   return (
     <Link
@@ -29,6 +31,11 @@ export function PropertyCard({ property, className }: { property: Property; clas
         <div className="absolute left-3 top-3">
           <VerificationBadge status={property.verificationStatus} />
         </div>
+        {typeof trustScore === "number" ? (
+          <div className="absolute right-3 top-3">
+            <TrustScoreBadge score={trustScore} />
+          </div>
+        ) : null}
       </div>
 
       <div className="grid gap-2 p-4">

@@ -35,6 +35,37 @@ export type DraftPropertyStoreItem = {
   verificationStatus: "NOT_VERIFIED" | "PENDING" | "VERIFIED" | "REJECTED" | "SUSPICIOUS";
 };
 
+export type BookingStoreItem = {
+  id: string;
+  stayId: string;
+  stayTitleSnapshot: string;
+  stayNeighborhoodSnapshot: string;
+  stayCitySnapshot: string;
+  pricePerNightSnapshot: number;
+  checkInDate: string;
+  checkOutDate: string;
+  guests: number;
+  name: string;
+  whatsapp: string;
+  message?: string;
+  createdAt: string;
+  status: "PENDING" | "CONFIRMED" | "DECLINED";
+};
+
+export type VerificationRequestStoreItem = {
+  id: string;
+  kind: string;
+  fullName: string;
+  whatsAppPhone: string;
+  email?: string;
+  city?: string;
+  neighborhood?: string;
+  listingRefOrUrl?: string;
+  message?: string;
+  createdAt: string;
+  status: "PENDING" | "IN_REVIEW" | "DONE";
+};
+
 export type RecentStore = { propertyIds: string[] };
 
 function safeParse<T>(raw: string | null): T | null {
@@ -119,6 +150,46 @@ export function addDraftProperty(input: Omit<DraftPropertyStoreItem, "id" | "cre
   const next = [item, ...list].slice(0, 50);
   window.localStorage.setItem(getKey("draftProperties"), JSON.stringify(next));
   window.dispatchEvent(new Event("imosafe:draftProperties"));
+  return item;
+}
+
+export function getBookings(): BookingStoreItem[] {
+  if (typeof window === "undefined") return [];
+  return safeParse<BookingStoreItem[]>(window.localStorage.getItem(getKey("bookings"))) ?? [];
+}
+
+export function addBooking(input: Omit<BookingStoreItem, "id" | "createdAt" | "status">): BookingStoreItem {
+  const list = getBookings();
+  const item: BookingStoreItem = {
+    ...input,
+    id: `bk_${Math.random().toString(16).slice(2)}`,
+    createdAt: new Date().toISOString(),
+    status: "PENDING",
+  };
+  const next = [item, ...list].slice(0, 100);
+  window.localStorage.setItem(getKey("bookings"), JSON.stringify(next));
+  window.dispatchEvent(new Event("imosafe:bookings"));
+  return item;
+}
+
+export function getVerificationRequests(): VerificationRequestStoreItem[] {
+  if (typeof window === "undefined") return [];
+  return safeParse<VerificationRequestStoreItem[]>(window.localStorage.getItem(getKey("verificationRequests"))) ?? [];
+}
+
+export function addVerificationRequest(
+  input: Omit<VerificationRequestStoreItem, "id" | "createdAt" | "status">
+): VerificationRequestStoreItem {
+  const list = getVerificationRequests();
+  const item: VerificationRequestStoreItem = {
+    ...input,
+    id: `vrq_${Math.random().toString(16).slice(2)}`,
+    createdAt: new Date().toISOString(),
+    status: "PENDING",
+  };
+  const next = [item, ...list].slice(0, 100);
+  window.localStorage.setItem(getKey("verificationRequests"), JSON.stringify(next));
+  window.dispatchEvent(new Event("imosafe:verificationRequests"));
   return item;
 }
 

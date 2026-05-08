@@ -9,12 +9,22 @@ import { SiteHeader } from "@/components/site/SiteHeader";
 import { DEMO_PROPERTIES } from "@/lib/demoData";
 import { clearMockSession, type MockRole } from "@/lib/mockSession";
 import { useMockSession } from "@/lib/useMockSession";
-import { getDraftProperties, getFavorites, getRecent, getScamReports, getVisitRequests } from "@/lib/mockDataStore";
+import {
+  getBookings,
+  getDraftProperties,
+  getFavorites,
+  getRecent,
+  getScamReports,
+  getVerificationRequests,
+  getVisitRequests,
+} from "@/lib/mockDataStore";
 
 export default function DashboardPage() {
   const session = useMockSession();
   const [favoritesCount, setFavoritesCount] = useState(0);
   const [visitsCount, setVisitsCount] = useState(0);
+  const [bookingsCount, setBookingsCount] = useState(0);
+  const [verificationRequestsCount, setVerificationRequestsCount] = useState(0);
   const [reportsCount, setReportsCount] = useState(0);
   const [draftsCount, setDraftsCount] = useState(0);
   const [recentIds, setRecentIds] = useState<string[]>([]);
@@ -23,6 +33,8 @@ export default function DashboardPage() {
     const read = () => {
       setFavoritesCount(getFavorites().propertyIds.length);
       setVisitsCount(getVisitRequests().length);
+      setBookingsCount(getBookings().length);
+      setVerificationRequestsCount(getVerificationRequests().length);
       setReportsCount(getScamReports().length);
       setDraftsCount(getDraftProperties().length);
       setRecentIds(getRecent().propertyIds);
@@ -31,12 +43,16 @@ export default function DashboardPage() {
     read();
     window.addEventListener("imosafe:favorites", read);
     window.addEventListener("imosafe:visitRequests", read);
+    window.addEventListener("imosafe:bookings", read);
+    window.addEventListener("imosafe:verificationRequests", read);
     window.addEventListener("imosafe:scamReports", read);
     window.addEventListener("imosafe:draftProperties", read);
     window.addEventListener("imosafe:recent", read);
     return () => {
       window.removeEventListener("imosafe:favorites", read);
       window.removeEventListener("imosafe:visitRequests", read);
+      window.removeEventListener("imosafe:bookings", read);
+      window.removeEventListener("imosafe:verificationRequests", read);
       window.removeEventListener("imosafe:scamReports", read);
       window.removeEventListener("imosafe:draftProperties", read);
       window.removeEventListener("imosafe:recent", read);
@@ -89,9 +105,11 @@ export default function DashboardPage() {
           ) : null}
         </div>
 
-        <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
+        <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-7">
           <StatCard title="Favoris" value={favoritesCount} href="/dashboard/favorites" />
           <StatCard title="Demandes de visite" value={visitsCount} href="/dashboard/visits" />
+          <StatCard title="Réservations" value={bookingsCount} href="/dashboard/bookings" />
+          <StatCard title="Vérifications" value={verificationRequestsCount} href="/dashboard/verification-requests" />
           <StatCard title="Signalements" value={reportsCount} href="/dashboard/reports" />
           <StatCard title="Récents" value={recentIds.length} href="/properties" />
           <StatCard title="Annonces (brouillons)" value={draftsCount} href="/dashboard/properties" />

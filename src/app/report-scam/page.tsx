@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 
 import { SiteFooter } from "@/components/site/SiteFooter";
 import { SiteHeader } from "@/components/site/SiteHeader";
+import { ScamReportBadge } from "@/components/ui/ScamReportBadge";
 import { addScamReport } from "@/lib/mockDataStore";
 
 export default function ReportScamPage({
@@ -16,6 +17,21 @@ export default function ReportScamPage({
   const [description, setDescription] = useState("");
   const [phoneOrContact, setPhoneOrContact] = useState("");
   const [done, setDone] = useState(false);
+
+  const suggestions = [
+    "Faux logement courte durée",
+    "Photos volées",
+    "Hôte suspect",
+    "Paiement demandé hors canal",
+    "Logement différent des photos",
+    "Caution suspecte",
+    "Indisponible après paiement",
+    "Faux propriétaire",
+    "Fausse agence",
+    "Terrain litigieux",
+    "Bien déjà loué/vendu",
+    "Prix mensonger",
+  ];
 
   const hint = useMemo(() => {
     if (!propertyId) return "";
@@ -34,13 +50,23 @@ export default function ReportScamPage({
 
         <div className="mt-6 rounded-3xl border border-amber-600/20 bg-amber-500/10 p-6 text-sm text-amber-950 ring-1 ring-amber-600/20 dark:border-amber-400/20 dark:text-amber-100 dark:ring-amber-400/20">
           <div className="font-extrabold">Rappel</div>
-          <div className="mt-1">Ne payez jamais avant d’avoir visité et vérifié.</div>
+          <div className="mt-1">Ne payez jamais avant d’avoir visité et vérifié. Une urgence + demande d’avance = alerte.</div>
+          <div className="mt-3 grid gap-1 text-xs">
+            <div>Conservez les preuves: captures, numéros, messages WhatsApp, IBAN / Mobile Money.</div>
+            <div>Si possible, partagez l’URL / ID du bien pour accélérer l’analyse.</div>
+          </div>
         </div>
 
         <div className="mt-6 rounded-3xl border border-black/10 bg-white p-6 shadow-sm dark:border-white/10 dark:bg-white/5">
           {done ? (
-            <div className="rounded-2xl border border-emerald-600/20 bg-emerald-500/10 p-4 text-sm text-emerald-950 ring-1 ring-emerald-600/20 dark:border-emerald-400/20 dark:text-emerald-100 dark:ring-emerald-400/20">
-              Merci. Ton signalement a été envoyé (mock) et sera analysé.
+            <div className="rounded-2xl border border-emerald-600/20 bg-emerald-500/10 p-5 text-sm text-emerald-950 ring-1 ring-emerald-600/20 dark:border-emerald-400/20 dark:text-emerald-100 dark:ring-emerald-400/20">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div className="font-extrabold">Merci. Ton signalement a bien été reçu.</div>
+                <ScamReportBadge />
+              </div>
+              <div className="mt-2 text-sm text-emerald-950/80 dark:text-emerald-100/80">
+                MVP: le signalement est enregistré localement sur ton navigateur. L’analyse admin sera branchée ensuite.
+              </div>
             </div>
           ) : (
             <form
@@ -64,9 +90,22 @@ export default function ReportScamPage({
                   className="mt-1 h-11 w-full rounded-2xl border border-black/10 bg-white px-3 text-sm text-slate-900 shadow-sm outline-none focus:ring-2 focus:ring-emerald-500/30 dark:border-white/10 dark:bg-black/20 dark:text-white"
                   value={reason}
                   onChange={(e) => setReason(e.target.value)}
-                  placeholder="Ex: demande d’avance / faux propriétaire"
+                  placeholder="Ex: paiement demandé hors canal / photos volées / faux propriétaire"
                   required
                 />
+              </div>
+
+              <div className="flex flex-wrap gap-2">
+                {suggestions.map((s) => (
+                  <button
+                    key={s}
+                    type="button"
+                    className="rounded-full border border-black/10 bg-slate-50 px-3 py-1 text-[11px] font-semibold text-slate-700 shadow-sm transition hover:bg-slate-100 dark:border-white/10 dark:bg-white/5 dark:text-white/70 dark:hover:bg-white/10"
+                    onClick={() => setReason(s)}
+                  >
+                    {s}
+                  </button>
+                ))}
               </div>
 
               <div>
@@ -97,7 +136,7 @@ export default function ReportScamPage({
               </button>
 
               <div className="text-xs text-slate-500 dark:text-white/50">
-                MVP: données non stockées encore. On branchera Prisma + dashboard admin.
+                MVP: signalements stockés localement (pas de DB). On branchera la vérification admin ensuite.
               </div>
             </form>
           )}

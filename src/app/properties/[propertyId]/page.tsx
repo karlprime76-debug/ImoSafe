@@ -6,6 +6,7 @@ import { PropertyGallery } from "@/components/properties/PropertyGallery";
 import { ReportButton } from "@/components/properties/ReportButton";
 import { VisitRequestForm } from "@/components/properties/VisitRequestForm";
 import { PriceTag } from "@/components/ui/PriceTag";
+import { TrustScoreBadge } from "@/components/ui/TrustScoreBadge";
 import { VerificationBadge } from "@/components/ui/VerificationBadge";
 import { SiteFooter } from "@/components/site/SiteFooter";
 import { SiteHeader } from "@/components/site/SiteHeader";
@@ -16,6 +17,8 @@ export default function PropertyDetailPage({ params }: { params: { propertyId: s
   const property = DEMO_PROPERTIES.find((p) => p.id === params.propertyId);
 
   if (!property) return notFound();
+
+  const trustScore = (property as unknown as { trustScore?: number }).trustScore;
 
   return (
     <div className="min-h-full">
@@ -42,7 +45,12 @@ export default function PropertyDetailPage({ params }: { params: { propertyId: s
                       {property.neighborhood ? ` • ${property.neighborhood}` : ""}
                     </div>
                   </div>
-                  <VerificationBadge status={property.verificationStatus} />
+                  <div className="flex flex-wrap items-center justify-end gap-2">
+                    {typeof trustScore === "number" ? (
+                      <TrustScoreBadge score={trustScore} />
+                    ) : null}
+                    <VerificationBadge status={property.verificationStatus} />
+                  </div>
                 </div>
 
                 <div className="mt-4 flex items-end justify-between gap-3">
@@ -71,7 +79,23 @@ export default function PropertyDetailPage({ params }: { params: { propertyId: s
 
                 <div className="mt-4 rounded-2xl border border-amber-600/20 bg-amber-500/10 p-4 text-sm text-amber-900 ring-1 ring-amber-600/20 dark:border-amber-400/20 dark:text-amber-100 dark:ring-amber-400/20">
                   <div className="font-semibold">Conseil sécurité</div>
-                  <div className="mt-1">Ne payez jamais avant d’avoir visité et vérifié.</div>
+                  <div className="mt-1">Ne payez jamais avant visite ou vérification.</div>
+                  <div className="mt-2 text-xs">Ce score est un indicateur d’aide à la décision, pas une garantie.</div>
+                </div>
+
+                <div className="mt-4 grid gap-2 sm:grid-cols-2">
+                  <Link
+                    href="/request-verification"
+                    className="inline-flex h-11 items-center justify-center rounded-2xl bg-emerald-600 px-4 text-sm font-semibold text-white shadow-sm transition hover:opacity-95"
+                  >
+                    Demander une vérification
+                  </Link>
+                  <Link
+                    href="/guide-anti-arnaque"
+                    className="inline-flex h-11 items-center justify-center rounded-2xl border border-black/10 bg-white px-4 text-sm font-semibold text-slate-900 shadow-sm transition hover:bg-slate-50 dark:border-white/10 dark:bg-white/5 dark:text-white dark:hover:bg-white/10"
+                  >
+                    Guide anti-arnaque
+                  </Link>
                 </div>
               </div>
             </div>

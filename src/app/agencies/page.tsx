@@ -1,5 +1,6 @@
 import { SiteFooter } from "@/components/site/SiteFooter";
 import { SiteHeader } from "@/components/site/SiteHeader";
+import { AgencyVerificationBadge } from "@/components/ui/AgencyVerificationBadge";
 import { DEMO_AGENCIES } from "@/lib/demoData";
 
 export default function AgenciesPage() {
@@ -18,7 +19,7 @@ export default function AgenciesPage() {
             <div key={a.id} className="rounded-3xl border border-black/10 bg-white p-5 shadow-sm dark:border-white/10 dark:bg-white/5">
               <div className="flex items-center justify-between gap-3">
                 <div className="text-base font-extrabold tracking-tight">{a.name}</div>
-                <div className="text-xs font-semibold text-slate-600 dark:text-white/60">{a.verificationStatus}</div>
+                <AgencyVerificationBadge status={a.verificationStatus} />
               </div>
               <div className="mt-2 text-sm text-slate-600 dark:text-white/70">{a.city}</div>
               <div className="mt-1 text-sm text-slate-600 dark:text-white/70">{a.address}</div>

@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 
 import { clearMockSession } from "@/lib/mockSession";
@@ -12,8 +13,8 @@ export function SiteHeader() {
     <header className="border-b border-black/5 bg-white/70 backdrop-blur dark:border-white/10 dark:bg-black/30">
       <div className="mx-auto flex w-full max-w-6xl items-center justify-between gap-3 px-4 py-4 sm:px-6">
         <Link href="/" className="flex items-center gap-2">
-          <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#0B2A4A] text-sm font-extrabold text-white">
-            IS
+          <div className="relative h-9 w-9 overflow-hidden rounded-xl bg-white shadow-sm ring-1 ring-black/10 dark:bg-white/5 dark:ring-white/10">
+            <Image src="/images/imosafe-logo.png" alt="ImoSafe" fill className="object-contain p-1" priority />
           </div>
           <div className="leading-tight">
             <div className="text-sm font-extrabold tracking-tight text-slate-900 dark:text-white">ImoSafe</div>
@@ -25,11 +26,14 @@ export function SiteHeader() {
           <Link href="/properties" className="hover:text-slate-900 dark:hover:text-white">
             Biens
           </Link>
-          <Link href="/agencies" className="hover:text-slate-900 dark:hover:text-white">
-            Agences
+          <Link href="/stays" className="hover:text-slate-900 dark:hover:text-white">
+            Séjours
           </Link>
-          <Link href="/pricing" className="hover:text-slate-900 dark:hover:text-white">
-            Premium
+          <Link href="/verification" className="hover:text-slate-900 dark:hover:text-white">
+            Vérification
+          </Link>
+          <Link href="/guide-anti-arnaque" className="hover:text-slate-900 dark:hover:text-white">
+            Guide
           </Link>
           <Link href="/report-scam" className="hover:text-slate-900 dark:hover:text-white">
             Signaler

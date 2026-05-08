@@ -20,7 +20,7 @@ export function MobileBottomNav() {
   const items = [
     { href: "/", label: "Accueil" },
     { href: "/properties", label: "Biens" },
-    { href: "/dashboard/favorites", label: "Favoris" },
+    { href: "/stays", label: "Séjours" },
     { href: "/report-scam", label: "Signaler" },
     { href: accountHref, label: "Compte" },
   ];
