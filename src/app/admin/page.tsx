@@ -1,18 +1,70 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import { SiteFooter } from "@/components/site/SiteFooter";
 import { SiteHeader } from "@/components/site/SiteHeader";
 import { DEMO_AGENCIES, DEMO_PROPERTIES } from "@/lib/demoData";
 import { getScamReports } from "@/lib/mockDataStore";
+import { useMockSession } from "@/lib/useMockSession";
 
 export default function AdminHomePage() {
+  const session = useMockSession();
+  const [userStats, setUserStats] = useState<{
+    total: number;
+    USER: number;
+    OWNER: number;
+    AGENCY: number;
+    HOST: number;
+    ADMIN: number;
+  } | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
   const reports = useMemo(() => getScamReports(), []);
   const pendingProps = DEMO_PROPERTIES.filter((p) => p.verificationStatus === "PENDING").length;
   const suspiciousProps = DEMO_PROPERTIES.filter((p) => p.verificationStatus === "SUSPICIOUS").length;
   const agenciesPending = DEMO_AGENCIES.filter((a) => a.verificationStatus === "PENDING").length;
+
+  const canView = session?.role === "ADMIN";
+
+  useEffect(() => {
+    if (!canView) return;
+
+    const run = async () => {
+      try {
+        setError(null);
+        const res = await fetch("/api/admin/stats", {
+          headers: { "x-imosafe-session-id": session.id },
+        });
+
+        const data = (await res.json()) as
+          | {
+              ok: true;
+              stats: { total: number; USER: number; OWNER: number; AGENCY: number; HOST: number; ADMIN: number };
+            }
+          | { ok: false; error?: { code?: string; message?: string } };
+
+        if (!res.ok || !data.ok) {
+          const code = data.ok ? undefined : data.error?.code;
+          if (code === "FORBIDDEN" || code === "UNAUTHORIZED") {
+            setError("Accès réservé à l’équipe ImoSafe.");
+          } else {
+            setError((data.ok ? undefined : data.error?.message) || "Erreur serveur.");
+          }
+          setUserStats(null);
+          return;
+        }
+
+        setUserStats(data.stats);
+      } catch {
+        setError("Erreur serveur.");
+        setUserStats(null);
+      }
+    };
+
+    run();
+  }, [canView, session?.id]);
 
   return (
     <div className="min-h-full">
@@ -24,7 +76,36 @@ export default function AdminHomePage() {
           MVP: pas de DB, pas de vraie auth. Actions = mock.
         </p>
 
-        <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        {!canView ? (
+          <div className="mt-6 rounded-3xl border border-amber-600/20 bg-amber-500/10 p-6 text-sm text-amber-950 ring-1 ring-amber-600/20 dark:border-amber-400/20 dark:text-amber-100 dark:ring-amber-400/20">
+            <div className="font-extrabold">Accès réservé à l’équipe ImoSafe</div>
+            <div className="mt-2">Connecte-toi avec un compte administrateur pour afficher les données sensibles.</div>
+          </div>
+        ) : (
+          <>
+            {error ? <div className="mt-6 text-sm font-semibold text-rose-700 dark:text-rose-300">{error}</div> : null}
+
+            {userStats ? (
+              <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-6">
+                <Stat title="Utilisateurs (total)" value={userStats.total} />
+                <Stat title="Utilisateurs" value={userStats.USER} />
+                <Stat title="Propriétaires" value={userStats.OWNER} />
+                <Stat title="Agences" value={userStats.AGENCY} />
+                <Stat title="Hôtes" value={userStats.HOST} />
+                <Stat title="Admins" value={userStats.ADMIN} />
+              </div>
+            ) : null}
+
+            <div className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+              <AdminLink href="/admin/users" title="Gérer utilisateurs" />
+              <AdminLink href="/admin/properties" title="Vérifier annonces" />
+              <AdminLink href="/admin/agencies" title="Vérifier agences" />
+              <AdminLink href="/admin/reports" title="Traiter signalements" />
+            </div>
+          </>
+        )}
+
+        <div className="mt-10 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           <Stat title="Annonces en vérification" value={pendingProps} />
           <Stat title="Annonces suspectes" value={suspiciousProps} />
           <Stat title="Agences à vérifier" value={agenciesPending} />
@@ -32,9 +113,6 @@ export default function AdminHomePage() {
         </div>
 
         <div className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          <AdminLink href="/admin/properties" title="Vérifier annonces" />
-          <AdminLink href="/admin/agencies" title="Vérifier agences" />
-          <AdminLink href="/admin/reports" title="Traiter signalements" />
           <AdminLink href="/properties" title="Voir site public" />
         </div>
       </main>
