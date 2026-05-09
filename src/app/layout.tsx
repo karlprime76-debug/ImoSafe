@@ -16,7 +16,16 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   title: "ImoSafe",
-  description: "Trouvez un bien immobilier en toute sécurité.",
+  description: "Plateforme immobilière de confiance pour trouver, louer, acheter ou réserver un bien avec plus de sécurité.",
+  manifest: "/manifest.webmanifest",
+  icons: {
+    icon: "/favicon.ico",
+    apple: "/apple-touch-icon.png",
+  },
+};
+
+export const viewport = {
+  themeColor: "#0f172a",
 };
 
 export default function RootLayout({
