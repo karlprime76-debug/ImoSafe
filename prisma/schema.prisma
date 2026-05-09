@@ -16,6 +16,7 @@ enum UserRole {
   USER
   OWNER
   AGENCY
+  HOST
   ADMIN
 }
 
@@ -145,7 +146,7 @@ model Property {
 }
 
 model Favorite {
-  id         String   @id @default(cuid())
+  id         String @id @default(cuid())
   userId     String
   propertyId String
 
@@ -195,9 +196,9 @@ model ScamReport {
 
 model Document {
   id                 String             @id @default(cuid())
-  propertyId          String
+  propertyId         String
   type               DocumentType
-  fileUrl             String
+  fileUrl            String
   verificationStatus VerificationStatus @default(PENDING)
   createdAt          DateTime           @default(now())
 

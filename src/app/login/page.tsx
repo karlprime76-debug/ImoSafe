@@ -6,13 +6,24 @@ import { useState } from "react";
 
 import { SiteFooter } from "@/components/site/SiteFooter";
 import { SiteHeader } from "@/components/site/SiteHeader";
-import { setMockSession } from "@/lib/mockSession";
+import { setMockSession, type MockRole } from "@/lib/mockSession";
+
+type LoginSuccess = {
+  ok: true;
+  user: { id: string; name: string; email: string; phone?: string | null; role: MockRole; createdAt: string };
+};
+
+type LoginError = {
+  ok: false;
+  error?: { code?: string; message?: string };
+};
 
 export default function LoginPage() {
   const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
 
   return (
     <div className="min-h-full">
@@ -24,7 +35,7 @@ export default function LoginPage() {
 
         <form
           className="mt-6 grid gap-3 rounded-3xl border border-black/10 bg-white p-6 shadow-sm dark:border-white/10 dark:bg-white/5"
-          onSubmit={(e) => {
+          onSubmit={async (e) => {
             e.preventDefault();
             setError(null);
 
@@ -38,14 +49,46 @@ export default function LoginPage() {
               return;
             }
 
-            setMockSession({
-              name: normalized.split("@")[0] || "Utilisateur",
-              email: normalized,
-              role: "USER",
-              createdAt: new Date().toISOString(),
-            });
+            try {
+              setLoading(true);
+              const res = await fetch("/api/auth/login", {
+                method: "POST",
+                headers: { "content-type": "application/json" },
+                body: JSON.stringify({ email: normalized, password }),
+              });
 
-            router.push("/dashboard");
+              const data = (await res.json()) as LoginSuccess | LoginError;
+
+              if (!res.ok || !data.ok) {
+                const code = data.ok ? undefined : data.error?.code;
+                if (code === "ACCOUNT_NOT_FOUND") {
+                  setError("Aucun compte trouvé.");
+                } else if (code === "INVALID_PASSWORD") {
+                  setError("Mot de passe incorrect.");
+                } else if (code === "INVALID_PAYLOAD") {
+                  setError("Informations invalides.");
+                } else {
+                  setError((data.ok ? undefined : data.error?.message) || "Erreur serveur.");
+                }
+                return;
+              }
+
+              const user = data.user;
+              setMockSession({
+                id: user.id,
+                name: user.name,
+                email: user.email,
+                phone: user.phone ?? undefined,
+                role: user.role,
+                createdAt: user.createdAt,
+              });
+
+              router.push("/dashboard");
+            } catch {
+              setError("Erreur serveur.");
+            } finally {
+              setLoading(false);
+            }
           }}
         >
           <div>
@@ -76,9 +119,10 @@ export default function LoginPage() {
 
           <button
             type="submit"
-            className="inline-flex h-11 items-center justify-center rounded-2xl bg-[#0B2A4A] px-4 text-sm font-semibold text-white shadow-sm transition hover:opacity-95"
+            disabled={loading}
+            className="inline-flex h-11 items-center justify-center rounded-2xl bg-[#0B2A4A] px-4 text-sm font-semibold text-white shadow-sm transition hover:opacity-95 disabled:cursor-not-allowed disabled:opacity-60"
           >
-            Se connecter
+            {loading ? "Connexion..." : "Se connecter"}
           </button>
 
           <div className="text-sm text-slate-600 dark:text-white/70">

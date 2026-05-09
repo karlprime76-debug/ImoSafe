@@ -1,6 +1,7 @@
-export type MockRole = "USER" | "OWNER" | "AGENCY" | "ADMIN";
+export type MockRole = "USER" | "OWNER" | "AGENCY" | "HOST" | "ADMIN";
 
 export type MockSession = {
+  id: string;
   name: string;
   email: string;
   phone?: string;
@@ -16,7 +17,7 @@ export function getMockSession(): MockSession | null {
     const raw = window.localStorage.getItem(KEY);
     if (!raw) return null;
     const parsed = JSON.parse(raw) as MockSession;
-    if (!parsed || typeof parsed.email !== "string" || typeof parsed.role !== "string") return null;
+    if (!parsed || typeof parsed.id !== "string" || typeof parsed.email !== "string" || typeof parsed.role !== "string") return null;
     return parsed;
   } catch {
     return null;

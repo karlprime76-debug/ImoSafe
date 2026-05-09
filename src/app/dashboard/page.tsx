@@ -64,6 +64,7 @@ export default function DashboardPage() {
     if (role === "USER") return "Utilisateur";
     if (role === "OWNER") return "Propriétaire";
     if (role === "AGENCY") return "Agence";
+    if (role === "HOST") return "Hôte séjour";
     if (role === "ADMIN") return "Admin";
     return role;
   };
@@ -81,7 +82,15 @@ export default function DashboardPage() {
             <p className="mt-2 text-sm text-slate-600 dark:text-white/70">
               {session ? (
                 <>
-                  Connecté en mock: <span className="font-semibold">{session.name}</span> • {roleLabel(session.role)}
+                  Connecté: <span className="font-semibold">{session.name}</span> • {roleLabel(session.role)}
+                  <span className="mx-2">•</span>
+                  <span className="font-semibold">{session.email}</span>
+                  {session.phone ? (
+                    <>
+                      <span className="mx-2">•</span>
+                      <span className="font-semibold">{session.phone}</span>
+                    </>
+                  ) : null}
                 </>
               ) : (
                 <>

@@ -8,6 +8,16 @@ import { SiteFooter } from "@/components/site/SiteFooter";
 import { SiteHeader } from "@/components/site/SiteHeader";
 import { setMockSession, type MockRole } from "@/lib/mockSession";
 
+type RegisterSuccess = {
+  ok: true;
+  user: { id: string; name: string; email: string; phone?: string | null; role: MockRole; createdAt: string };
+};
+
+type RegisterError = {
+  ok: false;
+  error?: { code?: string; message?: string };
+};
+
 export default function RegisterPage() {
   const router = useRouter();
 
@@ -18,6 +28,7 @@ export default function RegisterPage() {
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
 
   return (
     <div className="min-h-full">
@@ -29,7 +40,7 @@ export default function RegisterPage() {
 
         <form
           className="mt-6 grid gap-3 rounded-3xl border border-black/10 bg-white p-6 shadow-sm dark:border-white/10 dark:bg-white/5"
-          onSubmit={(e) => {
+          onSubmit={async (e) => {
             e.preventDefault();
             setError(null);
 
@@ -42,6 +53,10 @@ export default function RegisterPage() {
               setError("Email invalide.");
               return;
             }
+            if (!phone.trim()) {
+              setError("Téléphone requis.");
+              return;
+            }
             if (password.trim().length < 6) {
               setError("Mot de passe trop court (min 6).");
               return;
@@ -51,15 +66,50 @@ export default function RegisterPage() {
               return;
             }
 
-            setMockSession({
-              name: name.trim(),
-              email: normalized,
-              phone: phone.trim() || undefined,
-              role,
-              createdAt: new Date().toISOString(),
-            });
+            try {
+              setLoading(true);
+              const res = await fetch("/api/auth/register", {
+                method: "POST",
+                headers: { "content-type": "application/json" },
+                body: JSON.stringify({
+                  name,
+                  email: normalized,
+                  phone,
+                  accountType: role,
+                  password,
+                  confirmPassword,
+                }),
+              });
 
-            router.push("/dashboard");
+              const data = (await res.json()) as RegisterSuccess | RegisterError;
+
+              if (!res.ok || !data.ok) {
+                const code = data.ok ? undefined : data.error?.code;
+                if (code === "EMAIL_IN_USE") {
+                  setError("Email déjà utilisé.");
+                } else if (code === "INVALID_PAYLOAD") {
+                  setError("Informations invalides.");
+                } else {
+                  setError((data.ok ? undefined : data.error?.message) || "Erreur serveur.");
+                }
+                return;
+              }
+
+              const user = data.user;
+              setMockSession({
+                id: user.id,
+                name: user.name,
+                email: user.email,
+                phone: user.phone ?? undefined,
+                role: user.role,
+                createdAt: user.createdAt,
+              });
+              router.push("/dashboard");
+            } catch {
+              setError("Erreur serveur.");
+            } finally {
+              setLoading(false);
+            }
           }}
         >
           <div>
@@ -105,6 +155,7 @@ export default function RegisterPage() {
               <option value="USER">Utilisateur</option>
               <option value="OWNER">Propriétaire</option>
               <option value="AGENCY">Agence</option>
+              <option value="HOST">Hôte séjour</option>
             </select>
           </div>
 
@@ -136,9 +187,10 @@ export default function RegisterPage() {
 
           <button
             type="submit"
-            className="inline-flex h-11 items-center justify-center rounded-2xl bg-emerald-600 px-4 text-sm font-semibold text-white shadow-sm transition hover:opacity-95"
+            disabled={loading}
+            className="inline-flex h-11 items-center justify-center rounded-2xl bg-emerald-600 px-4 text-sm font-semibold text-white shadow-sm transition hover:opacity-95 disabled:cursor-not-allowed disabled:opacity-60"
           >
-            Créer mon compte
+            {loading ? "Création..." : "Créer mon compte"}
           </button>
 
           <div className="text-sm text-slate-600 dark:text-white/70">
