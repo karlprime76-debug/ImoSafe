@@ -23,8 +23,7 @@ export default async function PropertyDetailPage({
 
   const apiUrl = `${process.env.NEXT_PUBLIC_SITE_URL ?? ""}/api/public/properties/${encodeURIComponent(propertyId)}`;
 
-  let res: Response | null = null;
-  let data:
+  type ApiResponse =
     | {
         ok: true;
         property: {
@@ -48,13 +47,16 @@ export default async function PropertyDetailPage({
         };
       }
     | { ok: false; error?: { message?: string } }
-    | null = null;
+    | null;
+
+  let res: Response | null = null;
+  let data: ApiResponse = null;
 
   try {
     res = await fetch(apiUrl, { cache: "no-store" });
     const contentType = res.headers.get("content-type") ?? "";
     if (contentType.includes("application/json")) {
-      data = (await res.json()) as typeof data;
+      data = (await res.json()) as ApiResponse;
     }
   } catch {
     // handled below
