@@ -8,17 +8,53 @@ import { SiteHeader } from "@/components/site/SiteHeader";
 import { StatusBadge } from "@/components/ui/StatusBadge";
 import type { VerificationRequestStoreItem } from "@/lib/mockDataStore";
 import { getVerificationRequests, updateVerificationRequestStatus } from "@/lib/mockDataStore";
+import { useAuthMe } from "@/lib/useAuthMe";
 
 export default function DashboardVerificationRequestsPage() {
+  const { user: session } = useAuthMe();
   const [requests, setRequests] = useState<VerificationRequestStoreItem[]>([]);
+  const [dbMode, setDbMode] = useState(false);
 
   useEffect(() => {
-    const read = () => setRequests(getVerificationRequests());
+    let cancelled = false;
 
-    read();
-    window.addEventListener("imosafe:verificationRequests", read);
-    return () => window.removeEventListener("imosafe:verificationRequests", read);
-  }, []);
+    const readLocal = () => {
+      setDbMode(false);
+      setRequests(getVerificationRequests());
+    };
+
+    const readDb = async () => {
+      try {
+        const res = await fetch("/api/dashboard/verification-requests", {
+          cache: "no-store",
+        });
+
+        const data = (await res.json()) as
+          | { ok: true; verificationRequests: VerificationRequestStoreItem[] }
+          | { ok: false; error?: { code?: string; message?: string } };
+
+        if (!res.ok || !data.ok) {
+          readLocal();
+          return;
+        }
+
+        if (cancelled) return;
+        setDbMode(true);
+        setRequests(data.verificationRequests);
+      } catch {
+        readLocal();
+      }
+    };
+
+    if (session?.id) void readDb();
+    else readLocal();
+
+    window.addEventListener("imosafe:verificationRequests", readLocal);
+    return () => {
+      cancelled = true;
+      window.removeEventListener("imosafe:verificationRequests", readLocal);
+    };
+  }, [session?.id]);
 
   const rows = useMemo(() => {
     return requests.map((r) => ({
@@ -112,14 +148,18 @@ export default function DashboardVerificationRequestsPage() {
                       <button
                         type="button"
                         className="inline-flex h-10 items-center justify-center rounded-2xl bg-[#0B2A4A] px-4 text-sm font-semibold text-white shadow-sm transition hover:opacity-95"
-                        onClick={() => updateVerificationRequestStatus(r.id, "IN_REVIEW")}
+                        onClick={() => {
+                          if (!dbMode) updateVerificationRequestStatus(r.id, "IN_REVIEW");
+                        }}
                       >
                         Marquer en cours
                       </button>
                       <button
                         type="button"
                         className="inline-flex h-10 items-center justify-center rounded-2xl bg-emerald-600 px-4 text-sm font-semibold text-white shadow-sm transition hover:opacity-95"
-                        onClick={() => updateVerificationRequestStatus(r.id, "DONE")}
+                        onClick={() => {
+                          if (!dbMode) updateVerificationRequestStatus(r.id, "DONE");
+                        }}
                       >
                         Terminé
                       </button>

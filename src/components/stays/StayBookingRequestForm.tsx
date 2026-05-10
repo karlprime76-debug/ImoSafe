@@ -5,8 +5,10 @@ import { useMemo, useState } from "react";
 import type { Stay } from "@/lib/demoData";
 import { addBooking } from "@/lib/mockDataStore";
 import { StatusBadge } from "@/components/ui/StatusBadge";
+import { useAuthMe } from "@/lib/useAuthMe";
 
 export function StayBookingRequestForm({ stay }: { stay: Stay }) {
+  const { user: session } = useAuthMe();
   const [checkInDate, setCheckInDate] = useState("");
   const [checkOutDate, setCheckOutDate] = useState("");
   const [guests, setGuests] = useState(1);
@@ -51,8 +53,38 @@ export function StayBookingRequestForm({ stay }: { stay: Stay }) {
       ) : (
         <form
           className="mt-5 grid gap-3"
-          onSubmit={(e) => {
+          onSubmit={async (e) => {
             e.preventDefault();
+
+            const payload = {
+              stayId: stay.id,
+              checkInDate,
+              checkOutDate,
+              guests,
+              name,
+              whatsapp,
+              message: message || undefined,
+            };
+
+            try {
+              const res = await fetch("/api/bookings", {
+                method: "POST",
+                headers: {
+                  "content-type": "application/json",
+                  ...(session?.id ? { "x-imosafe-session-id": session.id } : {}),
+                },
+                body: JSON.stringify(payload),
+              });
+
+              const data = (await res.json()) as { ok: true } | { ok: false };
+              if (res.ok && data.ok) {
+                setDone(true);
+                return;
+              }
+            } catch {
+              // fallback below
+            }
+
             addBooking({
               ...snapshot,
               checkInDate,

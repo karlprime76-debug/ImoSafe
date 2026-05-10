@@ -8,6 +8,7 @@ import { SiteHeader } from "@/components/site/SiteHeader";
 import { StatusBadge } from "@/components/ui/StatusBadge";
 import { IMOSAFE_CONTACT } from "@/lib/imosafeContact";
 import { addVerificationRequest } from "@/lib/mockDataStore";
+import { useAuthMe } from "@/lib/useAuthMe";
 
 const KINDS = [
   { value: "VERIFY_LISTING", label: "Vérifier une annonce" },
@@ -18,6 +19,7 @@ const KINDS = [
 ];
 
 export default function RequestVerificationPage() {
+  const { user: session } = useAuthMe();
   const [kind, setKind] = useState(KINDS[0]?.value ?? "VERIFY_LISTING");
   const [fullName, setFullName] = useState("");
   const [whatsAppPhone, setWhatsAppPhone] = useState("");
@@ -60,9 +62,10 @@ export default function RequestVerificationPage() {
             ) : (
               <form
                 className="mt-5 grid gap-3"
-                onSubmit={(e) => {
+                onSubmit={async (e) => {
                   e.preventDefault();
-                  addVerificationRequest({
+
+                  const payload = {
                     kind,
                     fullName,
                     whatsAppPhone,
@@ -71,7 +74,27 @@ export default function RequestVerificationPage() {
                     neighborhood: neighborhood || undefined,
                     listingRefOrUrl: listingRefOrUrl || undefined,
                     message: message || undefined,
-                  });
+                  };
+
+                  try {
+                    const res = await fetch("/api/verification-requests", {
+                      method: "POST",
+                      headers: {
+                        "content-type": "application/json",
+                        ...(session?.id ? { "x-imosafe-session-id": session.id } : {}),
+                      },
+                      body: JSON.stringify(payload),
+                    });
+                    const data = (await res.json()) as { ok: true } | { ok: false };
+                    if (res.ok && data.ok) {
+                      setDone(true);
+                      return;
+                    }
+                  } catch {
+                    // fallback below
+                  }
+
+                  addVerificationRequest(payload);
                   setDone(true);
                 }}
               >

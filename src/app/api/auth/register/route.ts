@@ -1,8 +1,8 @@
-import bcrypt from "bcryptjs";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 
 import { prisma } from "@/lib/prisma";
+import { createSupabaseRouteClient } from "@/lib/supabaseServer";
 
 type UserCreateArgs = Parameters<typeof prisma.user.create>[0];
 type UserRoleValue = UserCreateArgs["data"] extends { role?: infer R } ? R : never;
@@ -50,39 +50,50 @@ export async function POST(req: Request) {
     const normalizedEmail = email.trim().toLowerCase();
     const role = mapAccountTypeToRole(accountType) as UserRoleValue;
 
-    const existing = await prisma.user.findUnique({
-      where: { email: normalizedEmail },
-      select: { id: true },
-    });
-
+    const existing = await prisma.user.findUnique({ where: { email: normalizedEmail }, select: { id: true } });
     if (existing) {
       return NextResponse.json(
         { ok: false, error: { code: "EMAIL_IN_USE", message: "Email déjà utilisé." } },
-        { status: 409 }
+        { status: 409, headers: { "cache-control": "no-store" } }
       );
     }
 
-    const passwordHash = await bcrypt.hash(password, 10);
+    const { supabase, getSetCookieHeaders } = createSupabaseRouteClient(req);
+    const { data, error } = await supabase.auth.signUp({
+      email: normalizedEmail,
+      password,
+      options: {
+        data: {
+          name: name.trim(),
+          phone: phone.trim(),
+          accountType,
+        },
+      },
+    });
+
+    if (error || !data.user?.id) {
+      return NextResponse.json(
+        { ok: false, error: { code: "AUTH_SIGNUP_FAILED", message: "Inscription impossible." } },
+        { status: 400, headers: { "cache-control": "no-store" } }
+      );
+    }
 
     const user = await prisma.user.create({
       data: {
+        id: data.user.id,
         name: name.trim(),
         email: normalizedEmail,
         phone: phone.trim(),
         role,
-        passwordHash,
+        passwordHash: "SUPABASE_AUTH",
       },
-      select: {
-        id: true,
-        name: true,
-        email: true,
-        phone: true,
-        role: true,
-        createdAt: true,
-      },
+      select: { id: true, name: true, email: true, phone: true, role: true, createdAt: true },
     });
 
-    return NextResponse.json({ ok: true, user });
+    const headers = new Headers({ "cache-control": "no-store" });
+    for (const c of getSetCookieHeaders()) headers.append("set-cookie", c);
+
+    return NextResponse.json({ ok: true, user }, { headers });
   } catch {
     return NextResponse.json(
       { ok: false, error: { code: "SERVER_ERROR", message: "Erreur serveur." } },

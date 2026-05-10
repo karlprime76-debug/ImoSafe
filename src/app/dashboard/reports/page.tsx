@@ -5,16 +5,47 @@ import { useEffect, useState } from "react";
 import { SiteFooter } from "@/components/site/SiteFooter";
 import { SiteHeader } from "@/components/site/SiteHeader";
 import { getScamReports, type ScamReportStoreItem } from "@/lib/mockDataStore";
+import { useAuthMe } from "@/lib/useAuthMe";
 
 export default function DashboardReportsPage() {
+  const { user: session } = useAuthMe();
   const [items, setItems] = useState<ScamReportStoreItem[]>([]);
 
   useEffect(() => {
-    const read = () => setItems(getScamReports());
-    read();
-    window.addEventListener("imosafe:scamReports", read);
-    return () => window.removeEventListener("imosafe:scamReports", read);
-  }, []);
+    let cancelled = false;
+
+    const readLocal = () => setItems(getScamReports());
+
+    const readDb = async () => {
+      try {
+        const res = await fetch("/api/dashboard/reports", {
+          cache: "no-store",
+        });
+        const data = (await res.json()) as
+          | { ok: true; reports: ScamReportStoreItem[] }
+          | { ok: false; error?: { code?: string; message?: string } };
+
+        if (!res.ok || !data.ok) {
+          readLocal();
+          return;
+        }
+
+        if (cancelled) return;
+        setItems(data.reports);
+      } catch {
+        readLocal();
+      }
+    };
+
+    if (session?.id) void readDb();
+    else readLocal();
+
+    window.addEventListener("imosafe:scamReports", readLocal);
+    return () => {
+      cancelled = true;
+      window.removeEventListener("imosafe:scamReports", readLocal);
+    };
+  }, [session?.id]);
 
   return (
     <div className="min-h-full">

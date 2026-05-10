@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 
 import { prisma } from "@/lib/prisma";
+import { requireSessionId, jsonError as authJsonError } from "@/app/api/_utils/auth";
 
 const ALLOWED_PROPERTY_DOCUMENT_TYPES = new Set([
   "ID",
@@ -27,15 +28,11 @@ function jsonError(status: number, message: string, code?: string) {
 }
 
 async function requireSessionUser(req: Request) {
-  const sessionId = req.headers.get("x-imosafe-session-id");
-  if (!sessionId) return { ok: false as const, res: jsonError(401, "Unauthorized", "UNAUTHORIZED") };
+  const auth = await requireSessionId(req);
+  if (!auth.ok) return { ok: false as const, res: auth.res };
 
-  const user = await prisma.user.findUnique({
-    where: { id: sessionId },
-    select: { id: true, role: true },
-  });
-
-  if (!user) return { ok: false as const, res: jsonError(401, "Unauthorized", "UNAUTHORIZED") };
+  const user = await prisma.user.findUnique({ where: { id: auth.sessionId }, select: { id: true, role: true } });
+  if (!user) return { ok: false as const, res: authJsonError(401, "UNAUTHORIZED") };
 
   const canPublish = user.role === "OWNER" || user.role === "AGENCY" || user.role === "ADMIN";
   if (!canPublish) return { ok: false as const, res: jsonError(403, "Forbidden", "FORBIDDEN") };

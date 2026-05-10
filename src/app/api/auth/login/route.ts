@@ -1,8 +1,8 @@
-import bcrypt from "bcryptjs";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 
 import { prisma } from "@/lib/prisma";
+import { createSupabaseRouteClient } from "@/lib/supabaseServer";
 
 const LoginSchema = z.object({
   email: z.string().trim().email(),
@@ -31,37 +31,37 @@ export async function POST(req: Request) {
     const normalizedEmail = parsed.data.email.trim().toLowerCase();
     const password = parsed.data.password;
 
-    const userWithHash = await prisma.user.findUnique({
-      where: { email: normalizedEmail },
-      select: {
-        id: true,
-        name: true,
-        email: true,
-        phone: true,
-        role: true,
-        createdAt: true,
-        passwordHash: true,
-      },
-    });
+    const { supabase, getSetCookieHeaders } = createSupabaseRouteClient(req);
+    const { data, error } = await supabase.auth.signInWithPassword({ email: normalizedEmail, password });
 
-    if (!userWithHash) {
+    if (error || !data.user?.id) {
       return NextResponse.json(
-        { ok: false, error: { code: "ACCOUNT_NOT_FOUND", message: "Aucun compte trouvé." } },
-        { status: 404 }
+        { ok: false, error: { code: "INVALID_CREDENTIALS", message: "Identifiants invalides." } },
+        { status: 401, headers: { "cache-control": "no-store" } }
       );
     }
 
-    const ok = await bcrypt.compare(password, userWithHash.passwordHash);
-    if (!ok) {
-      return NextResponse.json(
-        { ok: false, error: { code: "INVALID_PASSWORD", message: "Mot de passe incorrect." } },
-        { status: 401 }
-      );
-    }
+    const supaUser = data.user;
 
-    const { passwordHash, ...user } = userWithHash;
-    void passwordHash;
-    return NextResponse.json({ ok: true, user });
+    const existing = await prisma.user.findUnique({ where: { id: supaUser.id }, select: { id: true, name: true, email: true, phone: true, role: true, createdAt: true } });
+    const user =
+      existing ??
+      (await prisma.user.create({
+        data: {
+          id: supaUser.id,
+          name: (typeof supaUser.user_metadata?.name === "string" && supaUser.user_metadata.name.trim()) || normalizedEmail,
+          email: normalizedEmail,
+          phone: typeof supaUser.user_metadata?.phone === "string" ? supaUser.user_metadata.phone.trim() : null,
+          role: "USER",
+          passwordHash: "SUPABASE_AUTH",
+        },
+        select: { id: true, name: true, email: true, phone: true, role: true, createdAt: true },
+      }));
+
+    const headers = new Headers({ "cache-control": "no-store" });
+    for (const c of getSetCookieHeaders()) headers.append("set-cookie", c);
+
+    return NextResponse.json({ ok: true, user }, { headers });
   } catch {
     return NextResponse.json(
       { ok: false, error: { code: "SERVER_ERROR", message: "Erreur serveur." } },

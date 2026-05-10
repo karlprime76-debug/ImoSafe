@@ -6,7 +6,7 @@ import { useEffect, useMemo, useState } from "react";
 import { SiteFooter } from "@/components/site/SiteFooter";
 import { SiteHeader } from "@/components/site/SiteHeader";
 import { StatusBadge } from "@/components/ui/StatusBadge";
-import { useMockSession } from "@/lib/useMockSession";
+import { useAuthMe } from "@/lib/useAuthMe";
 
 type AdminStayRow = {
   id: string;
@@ -27,7 +27,7 @@ type AdminStayRow = {
 };
 
 export default function AdminStaysPage() {
-  const session = useMockSession();
+  const { user: session } = useAuthMe();
   const canView = session?.role === "ADMIN";
 
   const [rows, setRows] = useState<AdminStayRow[]>([]);
@@ -42,7 +42,6 @@ export default function AdminStaysPage() {
         setLoading(true);
         setError(null);
         const res = await fetch("/api/admin/stays", {
-          headers: { "x-imosafe-session-id": session.id },
           cache: "no-store",
         });
 
@@ -79,7 +78,6 @@ export default function AdminStaysPage() {
         method: "PATCH",
         headers: {
           "content-type": "application/json",
-          "x-imosafe-session-id": session.id,
         },
         body: JSON.stringify({ action }),
       }

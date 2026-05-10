@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
-import { useMockSession } from "@/lib/useMockSession";
+import { useAuthMe } from "@/lib/useAuthMe";
 
 function itemClass(active: boolean) {
   return active
@@ -13,7 +13,7 @@ function itemClass(active: boolean) {
 
 export function MobileBottomNav() {
   const pathname = usePathname();
-  const session = useMockSession();
+  const { user: session } = useAuthMe();
 
   const accountHref = session ? "/dashboard" : "/login";
 

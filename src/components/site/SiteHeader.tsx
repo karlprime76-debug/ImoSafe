@@ -3,11 +3,10 @@
 import Image from "next/image";
 import Link from "next/link";
 
-import { clearMockSession } from "@/lib/mockSession";
-import { useMockSession } from "@/lib/useMockSession";
+import { useAuthMe } from "@/lib/useAuthMe";
 
 export function SiteHeader() {
-  const session = useMockSession();
+  const { user: session } = useAuthMe();
 
   return (
     <header className="border-b border-black/5 bg-white/70 backdrop-blur dark:border-white/10 dark:bg-black/30">
@@ -38,6 +37,11 @@ export function SiteHeader() {
           <Link href="/report-scam" className="hover:text-slate-900 dark:hover:text-white">
             Signaler
           </Link>
+          {session?.role === "ADMIN" ? (
+            <Link href="/admin" className="hover:text-slate-900 dark:hover:text-white">
+              Admin
+            </Link>
+          ) : null}
         </nav>
 
         <div className="flex items-center gap-2">
@@ -52,8 +56,12 @@ export function SiteHeader() {
               <button
                 type="button"
                 className="inline-flex h-10 items-center justify-center rounded-2xl bg-emerald-600 px-4 text-sm font-semibold text-white shadow-sm transition hover:opacity-95"
-                onClick={() => {
-                  clearMockSession();
+                onClick={async () => {
+                  try {
+                    await fetch("/api/auth/logout", { method: "POST" });
+                  } catch {
+                    // ignore
+                  }
                   window.location.href = "/";
                 }}
               >

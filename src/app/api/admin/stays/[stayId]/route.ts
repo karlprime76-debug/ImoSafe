@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 
 import { prisma } from "@/lib/prisma";
+import { requireAdmin } from "@/app/api/_utils/auth";
 
 function jsonError(status: number, code: string, message?: string) {
   return NextResponse.json(
@@ -12,20 +13,6 @@ function jsonError(status: number, code: string, message?: string) {
       },
     }
   );
-}
-
-async function requireAdmin(request: Request) {
-  const sessionId = request.headers.get("x-imosafe-session-id")?.trim();
-  if (!sessionId) return { ok: false as const, res: jsonError(401, "UNAUTHORIZED") };
-
-  const user = await prisma.user.findUnique({
-    where: { id: sessionId },
-    select: { id: true, role: true },
-  });
-
-  if (!user || user.role !== "ADMIN") return { ok: false as const, res: jsonError(403, "FORBIDDEN") };
-
-  return { ok: true as const, adminId: user.id };
 }
 
 type PatchBody = {

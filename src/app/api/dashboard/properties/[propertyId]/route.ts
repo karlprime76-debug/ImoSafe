@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 
 import { prisma } from "@/lib/prisma";
+import { requireSessionId, jsonError as authJsonError } from "@/app/api/_utils/auth";
 
 function jsonError(status: number, message: string, code?: string) {
   return NextResponse.json(
@@ -15,20 +16,16 @@ function jsonError(status: number, message: string, code?: string) {
 }
 
 async function requireSessionUser(req: Request) {
-  const sessionId = req.headers.get("x-imosafe-session-id");
-  if (!sessionId) return { ok: false as const, res: jsonError(401, "Unauthorized", "UNAUTHORIZED") };
+  const auth = await requireSessionId(req);
+  if (!auth.ok) return { ok: false as const, res: auth.res };
 
-  const user = await prisma.user.findUnique({
-    where: { id: sessionId },
-    select: { id: true, role: true },
-  });
-
-  if (!user) return { ok: false as const, res: jsonError(401, "Unauthorized", "UNAUTHORIZED") };
+  const user = await prisma.user.findUnique({ where: { id: auth.sessionId }, select: { id: true, role: true } });
+  if (!user) return { ok: false as const, res: authJsonError(401, "UNAUTHORIZED") };
 
   const canManage = user.role === "OWNER" || user.role === "AGENCY" || user.role === "ADMIN";
   if (!canManage) return { ok: false as const, res: jsonError(403, "Forbidden", "FORBIDDEN") };
 
-  return { ok: true as const, user };
+  return { ok: true as const, user, sessionId: auth.sessionId };
 }
 
 async function canEditProperty(user: { id: string; role: string }, propertyId: string) {
@@ -205,7 +202,7 @@ export async function PUT(req: Request, ctx: { params: Promise<{ propertyId: str
                 fileUrl: d.url,
                 fileName: d.name,
                 verificationStatus: "PENDING",
-                uploadedById: auth.user.id,
+                uploadedById: auth.sessionId,
               })),
             }
           : undefined,

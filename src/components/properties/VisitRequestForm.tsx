@@ -3,8 +3,10 @@
 import { useState } from "react";
 
 import { addVisitRequest } from "@/lib/mockDataStore";
+import { useAuthMe } from "@/lib/useAuthMe";
 
 export function VisitRequestForm({ propertyId }: { propertyId: string }) {
+  const { user: session } = useAuthMe();
   const [name, setName] = useState("");
   const [whatsapp, setWhatsapp] = useState("");
   const [preferredDate, setPreferredDate] = useState("");
@@ -23,8 +25,37 @@ export function VisitRequestForm({ propertyId }: { propertyId: string }) {
   return (
     <form
       className="grid gap-3"
-      onSubmit={(e) => {
+      onSubmit={async (e) => {
         e.preventDefault();
+
+        const payload = {
+          propertyId,
+          name: name.trim(),
+          whatsapp: whatsapp.trim(),
+          preferredDate: preferredDate || undefined,
+          preferredTime: preferredTime || undefined,
+          message: message || undefined,
+        };
+
+        try {
+          const res = await fetch("/api/visit-requests", {
+            method: "POST",
+            headers: {
+              "content-type": "application/json",
+              ...(session?.id ? { "x-imosafe-session-id": session.id } : {}),
+            },
+            body: JSON.stringify(payload),
+          });
+
+          const data = (await res.json()) as { ok: true } | { ok: false };
+          if (res.ok && data.ok) {
+            setDone(true);
+            return;
+          }
+        } catch {
+          // fallback below
+        }
+
         addVisitRequest({
           propertyId,
           name: name.trim(),

@@ -6,7 +6,7 @@ import { useEffect, useMemo, useState } from "react";
 import { SiteFooter } from "@/components/site/SiteFooter";
 import { SiteHeader } from "@/components/site/SiteHeader";
 import { StatusBadge } from "@/components/ui/StatusBadge";
-import { useMockSession } from "@/lib/useMockSession";
+import { useAuthMe } from "@/lib/useAuthMe";
 
 type AdminPropertyRow = {
   id: string;
@@ -29,7 +29,7 @@ type AdminPropertyRow = {
 };
 
 export default function AdminPropertiesPage() {
-  const session = useMockSession();
+  const { user: session } = useAuthMe();
   const canView = session?.role === "ADMIN";
 
   const [rows, setRows] = useState<AdminPropertyRow[]>([]);
@@ -44,7 +44,6 @@ export default function AdminPropertiesPage() {
         setLoading(true);
         setError(null);
         const res = await fetch("/api/admin/properties", {
-          headers: { "x-imosafe-session-id": session.id },
           cache: "no-store",
         });
 
@@ -81,7 +80,6 @@ export default function AdminPropertiesPage() {
         method: "PATCH",
         headers: {
           "content-type": "application/json",
-          "x-imosafe-session-id": session.id,
         },
         body: JSON.stringify({ action }),
       }

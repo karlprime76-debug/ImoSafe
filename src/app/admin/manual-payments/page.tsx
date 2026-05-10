@@ -8,21 +8,86 @@ import { SiteHeader } from "@/components/site/SiteHeader";
 import { StatusBadge } from "@/components/ui/StatusBadge";
 import type { ManualPaymentRequestStoreItem } from "@/lib/mockDataStore";
 import { getManualPaymentRequests, updateManualPaymentRequestStatus } from "@/lib/mockDataStore";
-import { useMockSession } from "@/lib/useMockSession";
+import { useAuthMe } from "@/lib/useAuthMe";
 
 export default function AdminManualPaymentsPage() {
-  const session = useMockSession();
+  const { user: session } = useAuthMe();
   const canView = session?.role === "ADMIN";
 
   const [items, setItems] = useState<ManualPaymentRequestStoreItem[]>([]);
+  const [dbMode, setDbMode] = useState(false);
 
   useEffect(() => {
     if (!canView) return;
-    const read = () => setItems(getManualPaymentRequests());
-    read();
-    window.addEventListener("imosafe:manualPaymentRequests", read);
-    return () => window.removeEventListener("imosafe:manualPaymentRequests", read);
-  }, [canView]);
+    let cancelled = false;
+
+    const readLocal = () => {
+      setDbMode(false);
+      setItems(getManualPaymentRequests());
+    };
+
+    const readDb = async () => {
+      try {
+        const res = await fetch("/api/admin/manual-payments", {
+          cache: "no-store",
+        });
+
+        const data = (await res.json()) as
+          | { ok: true; manualPaymentRequests: ManualPaymentRequestStoreItem[] }
+          | { ok: false; error?: { code?: string; message?: string } };
+
+        if (!res.ok || !data.ok) {
+          readLocal();
+          return;
+        }
+
+        if (cancelled) return;
+        setDbMode(true);
+        setItems(data.manualPaymentRequests);
+      } catch {
+        readLocal();
+      }
+    };
+
+    if (session?.id) void readDb();
+    else readLocal();
+
+    window.addEventListener("imosafe:manualPaymentRequests", readLocal);
+    return () => {
+      cancelled = true;
+      window.removeEventListener("imosafe:manualPaymentRequests", readLocal);
+    };
+  }, [canView, session?.id]);
+
+  const patch = async (requestId: string, nextStatus: ManualPaymentRequestStoreItem["status"]) => {
+    if (!dbMode || !session?.id) {
+      updateManualPaymentRequestStatus(requestId, nextStatus);
+      return;
+    }
+
+    try {
+      const res = await fetch(`/api/admin/manual-payments/${encodeURIComponent(requestId)}`, {
+        method: "PATCH",
+        headers: {
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({ status: nextStatus }),
+      });
+
+      const data = (await res.json()) as
+        | { ok: true; manualPaymentRequest: { id: string; status: ManualPaymentRequestStoreItem["status"] } }
+        | { ok: false; error?: { code?: string; message?: string } };
+
+      if (!res.ok || !data.ok) {
+        updateManualPaymentRequestStatus(requestId, nextStatus);
+        return;
+      }
+
+      setItems((prev) => prev.map((it) => (it.id === data.manualPaymentRequest.id ? { ...it, status: data.manualPaymentRequest.status } : it)));
+    } catch {
+      updateManualPaymentRequestStatus(requestId, nextStatus);
+    }
+  };
 
   const rows = useMemo(() => {
     return items.map((it) => ({
@@ -96,21 +161,21 @@ export default function AdminManualPaymentsPage() {
                       <button
                         type="button"
                         className="inline-flex h-10 items-center justify-center rounded-2xl bg-[#0B2A4A] px-4 text-sm font-semibold text-white shadow-sm transition hover:opacity-95"
-                        onClick={() => updateManualPaymentRequestStatus(r.id, "IN_REVIEW")}
+                        onClick={() => void patch(r.id, "IN_REVIEW")}
                       >
                         Marquer reçu
                       </button>
                       <button
                         type="button"
                         className="inline-flex h-10 items-center justify-center rounded-2xl bg-emerald-600 px-4 text-sm font-semibold text-white shadow-sm transition hover:opacity-95"
-                        onClick={() => updateManualPaymentRequestStatus(r.id, "ACTIVATED")}
+                        onClick={() => void patch(r.id, "ACTIVATED")}
                       >
                         Activer manuellement
                       </button>
                       <button
                         type="button"
                         className="inline-flex h-10 items-center justify-center rounded-2xl bg-rose-600 px-4 text-sm font-semibold text-white shadow-sm transition hover:opacity-95"
-                        onClick={() => updateManualPaymentRequestStatus(r.id, "REJECTED")}
+                        onClick={() => void patch(r.id, "REJECTED")}
                       >
                         Rejeter
                       </button>

@@ -7,12 +7,14 @@ import { SiteHeader } from "@/components/site/SiteHeader";
 import { ScamReportBadge } from "@/components/ui/ScamReportBadge";
 import { IMOSAFE_CONTACT } from "@/lib/imosafeContact";
 import { addScamReport } from "@/lib/mockDataStore";
+import { useAuthMe } from "@/lib/useAuthMe";
 
 export default function ReportScamPage({
   searchParams,
 }: {
   searchParams: { propertyId?: string };
 }) {
+  const { user: session } = useAuthMe();
   const propertyId = searchParams.propertyId ?? "";
   const [reason, setReason] = useState("");
   const [description, setDescription] = useState("");
@@ -72,14 +74,35 @@ export default function ReportScamPage({
           ) : (
             <form
               className="grid gap-3"
-              onSubmit={(e) => {
+              onSubmit={async (e) => {
                 e.preventDefault();
-                addScamReport({
+
+                const payload = {
                   propertyId: propertyId || undefined,
                   reason,
                   description: description || undefined,
                   phoneOrContact: phoneOrContact || undefined,
-                });
+                };
+
+                try {
+                  const res = await fetch("/api/scam-reports", {
+                    method: "POST",
+                    headers: {
+                      "content-type": "application/json",
+                      ...(session?.id ? { "x-imosafe-session-id": session.id } : {}),
+                    },
+                    body: JSON.stringify(payload),
+                  });
+                  const data = (await res.json()) as { ok: true } | { ok: false };
+                  if (res.ok && data.ok) {
+                    setDone(true);
+                    return;
+                  }
+                } catch {
+                  // fallback below
+                }
+
+                addScamReport(payload);
                 setDone(true);
               }}
             >

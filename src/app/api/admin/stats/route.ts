@@ -1,24 +1,7 @@
 import { NextResponse } from "next/server";
 
 import { prisma } from "@/lib/prisma";
-
-async function requireAdmin(request: Request) {
-  const sessionId = request.headers.get("x-imosafe-session-id")?.trim();
-  if (!sessionId) {
-    return { ok: false as const, res: NextResponse.json({ ok: false, error: { code: "UNAUTHORIZED" } }, { status: 401 }) };
-  }
-
-  const user = await prisma.user.findUnique({
-    where: { id: sessionId },
-    select: { id: true, role: true },
-  });
-
-  if (!user || user.role !== "ADMIN") {
-    return { ok: false as const, res: NextResponse.json({ ok: false, error: { code: "FORBIDDEN" } }, { status: 403 }) };
-  }
-
-  return { ok: true as const, adminId: user.id };
-}
+import { requireAdmin } from "@/app/api/_utils/auth";
 
 export async function GET(request: Request) {
   try {

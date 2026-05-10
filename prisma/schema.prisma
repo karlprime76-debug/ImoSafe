@@ -157,6 +157,12 @@ enum ScamReportStatus {
   REJECTED
 }
 
+enum VerificationRequestStatus {
+  PENDING
+  IN_REVIEW
+  DONE
+}
+
 enum DocumentType {
   ID
   TITLE_DEED
@@ -185,6 +191,7 @@ model User {
   favorites       Favorite[]
   visitRequests   VisitRequest[]
   scamReports     ScamReport[]
+  verificationRequests VerificationRequest[] @relation("UserVerificationRequests")
   stays           Stay[]
   documents       Document[]
   bookingRequests BookingRequest[]
@@ -295,6 +302,27 @@ model ScamReport {
   user     User?     @relation(fields: [userId], references: [id], onDelete: SetNull)
   property Property? @relation(fields: [propertyId], references: [id], onDelete: SetNull)
 
+  @@index([status])
+  @@index([createdAt])
+}
+
+model VerificationRequest {
+  id              String                  @id @default(cuid())
+  userId          String?
+  kind            String
+  fullName        String
+  whatsAppPhone   String
+  email           String?
+  city            String?
+  neighborhood    String?
+  listingRefOrUrl String?
+  message         String?
+  status          VerificationRequestStatus @default(PENDING)
+  createdAt       DateTime                @default(now())
+
+  user User? @relation("UserVerificationRequests", fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([userId])
   @@index([status])
   @@index([createdAt])
 }

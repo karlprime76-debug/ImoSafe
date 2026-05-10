@@ -6,10 +6,10 @@ import { useState } from "react";
 import { SiteFooter } from "@/components/site/SiteFooter";
 import { SiteHeader } from "@/components/site/SiteHeader";
 import { ImageUploader } from "@/components/uploads/ImageUploader";
-import { useMockSession } from "@/lib/useMockSession";
+import { useAuthMe } from "@/lib/useAuthMe";
 
 export default function NewStayPage() {
-  const session = useMockSession();
+  const { user: session } = useAuthMe();
   const [done, setDone] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
@@ -87,7 +87,6 @@ export default function NewStayPage() {
                     method: "POST",
                     headers: {
                       "content-type": "application/json",
-                      "x-imosafe-session-id": session.id,
                     },
                     body: JSON.stringify({
                       title: title.trim(),

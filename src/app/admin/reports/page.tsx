@@ -6,17 +6,83 @@ import { useEffect, useMemo, useState } from "react";
 import { SiteFooter } from "@/components/site/SiteFooter";
 import { SiteHeader } from "@/components/site/SiteHeader";
 import { getScamReports, type ScamReportStoreItem } from "@/lib/mockDataStore";
+import { useAuthMe } from "@/lib/useAuthMe";
 
 export default function AdminReportsPage() {
+  const { user: session } = useAuthMe();
+  const canView = session?.role === "ADMIN";
   const [items, setItems] = useState<ScamReportStoreItem[]>([]);
   const [status, setStatus] = useState<Record<string, ScamReportStoreItem["status"]>>({});
+  const [dbMode, setDbMode] = useState(false);
 
   useEffect(() => {
-    const read = () => setItems(getScamReports());
-    read();
-    window.addEventListener("imosafe:scamReports", read);
-    return () => window.removeEventListener("imosafe:scamReports", read);
-  }, []);
+    let cancelled = false;
+
+    const readLocal = () => {
+      setDbMode(false);
+      setItems(getScamReports());
+    };
+
+    const readDb = async () => {
+      try {
+        const res = await fetch("/api/admin/reports", {
+          cache: "no-store",
+        });
+        const data = (await res.json()) as
+          | { ok: true; reports: ScamReportStoreItem[] }
+          | { ok: false; error?: { code?: string; message?: string } };
+
+        if (!res.ok || !data.ok) {
+          readLocal();
+          return;
+        }
+
+        if (cancelled) return;
+        setDbMode(true);
+        setItems(data.reports);
+      } catch {
+        readLocal();
+      }
+    };
+
+    if (canView && session?.id) void readDb();
+    else readLocal();
+
+    window.addEventListener("imosafe:scamReports", readLocal);
+    return () => {
+      cancelled = true;
+      window.removeEventListener("imosafe:scamReports", readLocal);
+    };
+  }, [canView, session?.id]);
+
+  const patch = async (reportId: string, nextStatus: ScamReportStoreItem["status"]) => {
+    if (!dbMode || !session?.id) {
+      setStatus((s) => ({ ...s, [reportId]: nextStatus }));
+      return;
+    }
+
+    try {
+      const res = await fetch(`/api/admin/reports/${encodeURIComponent(reportId)}`, {
+        method: "PATCH",
+        headers: {
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({ status: nextStatus }),
+      });
+      const data = (await res.json()) as
+        | { ok: true; report: { id: string; status: ScamReportStoreItem["status"] } }
+        | { ok: false; error?: { code?: string; message?: string } };
+
+      if (!res.ok || !data.ok) {
+        setStatus((s) => ({ ...s, [reportId]: nextStatus }));
+        return;
+      }
+
+      setItems((prev) => prev.map((it) => (it.id === data.report.id ? { ...it, status: data.report.status } : it)));
+    } catch {
+      setStatus((s) => ({ ...s, [reportId]: nextStatus }));
+    }
+  };
 
   const rows = useMemo(
     () =>
@@ -54,21 +120,21 @@ export default function AdminReportsPage() {
                   <button
                     type="button"
                     className="inline-flex h-10 items-center justify-center rounded-2xl bg-[#0B2A4A] px-4 text-sm font-semibold text-white"
-                    onClick={() => setStatus((s) => ({ ...s, [it.id]: "IN_REVIEW" }))}
+                    onClick={() => void patch(it.id, "IN_REVIEW")}
                   >
                     En revue
                   </button>
                   <button
                     type="button"
                     className="inline-flex h-10 items-center justify-center rounded-2xl bg-emerald-600 px-4 text-sm font-semibold text-white"
-                    onClick={() => setStatus((s) => ({ ...s, [it.id]: "RESOLVED" }))}
+                    onClick={() => void patch(it.id, "RESOLVED")}
                   >
                     Résolu
                   </button>
                   <button
                     type="button"
                     className="inline-flex h-10 items-center justify-center rounded-2xl bg-rose-600 px-4 text-sm font-semibold text-white"
-                    onClick={() => setStatus((s) => ({ ...s, [it.id]: "REJECTED" }))}
+                    onClick={() => void patch(it.id, "REJECTED")}
                   >
                     Rejeter
                   </button>

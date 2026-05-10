@@ -6,7 +6,7 @@ import { useState } from "react";
 
 import { SiteFooter } from "@/components/site/SiteFooter";
 import { SiteHeader } from "@/components/site/SiteHeader";
-import { setMockSession, type MockRole } from "@/lib/mockSession";
+import type { MockRole } from "@/lib/mockSession";
 
 type LoginSuccess = {
   ok: true;
@@ -73,16 +73,7 @@ export default function LoginPage() {
                 return;
               }
 
-              const user = data.user;
-              setMockSession({
-                id: user.id,
-                name: user.name,
-                email: user.email,
-                phone: user.phone ?? undefined,
-                role: user.role,
-                createdAt: user.createdAt,
-              });
-
+              void data.user;
               router.push("/dashboard");
             } catch {
               setError("Erreur serveur.");

@@ -7,8 +7,8 @@ import { PropertyCard } from "@/components/properties/PropertyCard";
 import { SiteFooter } from "@/components/site/SiteFooter";
 import { SiteHeader } from "@/components/site/SiteHeader";
 import { DEMO_PROPERTIES } from "@/lib/demoData";
-import { clearMockSession, type MockRole } from "@/lib/mockSession";
-import { useMockSession } from "@/lib/useMockSession";
+import type { MockRole } from "@/lib/mockSession";
+import { useAuthMe } from "@/lib/useAuthMe";
 import {
   getBookings,
   getDraftProperties,
@@ -20,7 +20,7 @@ import {
 } from "@/lib/mockDataStore";
 
 export default function DashboardPage() {
-  const session = useMockSession();
+  const { user: session } = useAuthMe();
   const [favoritesCount, setFavoritesCount] = useState(0);
   const [visitsCount, setVisitsCount] = useState(0);
   const [bookingsCount, setBookingsCount] = useState(0);
@@ -104,8 +104,12 @@ export default function DashboardPage() {
             <button
               type="button"
               className="inline-flex h-10 items-center justify-center rounded-2xl border border-black/10 bg-white px-4 text-sm font-semibold text-slate-900 shadow-sm transition hover:bg-slate-50 dark:border-white/10 dark:bg-white/5 dark:text-white dark:hover:bg-white/10"
-              onClick={() => {
-                clearMockSession();
+              onClick={async () => {
+                try {
+                  await fetch("/api/auth/logout", { method: "POST" });
+                } catch {
+                  // ignore
+                }
                 window.location.href = "/";
               }}
             >

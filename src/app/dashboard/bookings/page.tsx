@@ -8,19 +8,53 @@ import { SiteHeader } from "@/components/site/SiteHeader";
 import { StatusBadge } from "@/components/ui/StatusBadge";
 import type { BookingStoreItem } from "@/lib/mockDataStore";
 import { getBookings, updateBookingStatus } from "@/lib/mockDataStore";
+import { useAuthMe } from "@/lib/useAuthMe";
 
 export default function DashboardBookingsPage() {
+  const { user: session } = useAuthMe();
   const [bookings, setBookings] = useState<BookingStoreItem[]>([]);
+  const [dbMode, setDbMode] = useState(false);
 
   useEffect(() => {
-    const read = () => {
+    let cancelled = false;
+
+    const readLocal = () => {
+      setDbMode(false);
       setBookings(getBookings());
     };
 
-    read();
-    window.addEventListener("imosafe:bookings", read);
-    return () => window.removeEventListener("imosafe:bookings", read);
-  }, []);
+    const readDb = async () => {
+      try {
+        const res = await fetch("/api/dashboard/bookings", {
+          cache: "no-store",
+        });
+
+        const data = (await res.json()) as
+          | { ok: true; bookings: BookingStoreItem[] }
+          | { ok: false; error?: { code?: string; message?: string } };
+
+        if (!res.ok || !data.ok) {
+          readLocal();
+          return;
+        }
+
+        if (cancelled) return;
+        setDbMode(true);
+        setBookings(data.bookings);
+      } catch {
+        readLocal();
+      }
+    };
+
+    if (session?.id) void readDb();
+    else readLocal();
+
+    window.addEventListener("imosafe:bookings", readLocal);
+    return () => {
+      cancelled = true;
+      window.removeEventListener("imosafe:bookings", readLocal);
+    };
+  }, [session?.id]);
 
   const rows = useMemo(() => {
     return bookings.map((b) => ({
@@ -109,20 +143,24 @@ export default function DashboardBookingsPage() {
                     ) : null}
 
                     <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
-                      <button
-                        type="button"
-                        className="inline-flex h-10 items-center justify-center rounded-2xl bg-emerald-600 px-4 text-sm font-semibold text-white shadow-sm transition hover:opacity-95"
-                        onClick={() => updateBookingStatus(b.id, "CONFIRMED")}
-                      >
-                        Accepter
-                      </button>
-                      <button
-                        type="button"
-                        className="inline-flex h-10 items-center justify-center rounded-2xl bg-rose-600 px-4 text-sm font-semibold text-white shadow-sm transition hover:opacity-95"
-                        onClick={() => updateBookingStatus(b.id, "DECLINED")}
-                      >
-                        Refuser
-                      </button>
+                      {!dbMode ? (
+                        <>
+                          <button
+                            type="button"
+                            className="inline-flex h-10 items-center justify-center rounded-2xl bg-emerald-600 px-4 text-sm font-semibold text-white shadow-sm transition hover:opacity-95"
+                            onClick={() => updateBookingStatus(b.id, "CONFIRMED")}
+                          >
+                            Accepter
+                          </button>
+                          <button
+                            type="button"
+                            className="inline-flex h-10 items-center justify-center rounded-2xl bg-rose-600 px-4 text-sm font-semibold text-white shadow-sm transition hover:opacity-95"
+                            onClick={() => updateBookingStatus(b.id, "DECLINED")}
+                          >
+                            Refuser
+                          </button>
+                        </>
+                      ) : null}
 
                       {(() => {
                         const wa = (b.whatsapp ?? "").replace(/[^0-9]/g, "");

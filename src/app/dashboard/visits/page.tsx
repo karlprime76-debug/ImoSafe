@@ -7,16 +7,73 @@ import { SiteFooter } from "@/components/site/SiteFooter";
 import { SiteHeader } from "@/components/site/SiteHeader";
 import { DEMO_PROPERTIES } from "@/lib/demoData";
 import { getVisitRequests, updateVisitRequestStatus, type VisitRequestStoreItem } from "@/lib/mockDataStore";
+import { useAuthMe } from "@/lib/useAuthMe";
 
 export default function VisitsPage() {
+  const { user: session } = useAuthMe();
   const [items, setItems] = useState<VisitRequestStoreItem[]>([]);
 
   useEffect(() => {
-    const read = () => setItems(getVisitRequests());
-    read();
-    window.addEventListener("imosafe:visitRequests", read);
-    return () => window.removeEventListener("imosafe:visitRequests", read);
-  }, []);
+    let cancelled = false;
+
+    const readLocal = () => setItems(getVisitRequests());
+
+    const readDb = async () => {
+      try {
+        const res = await fetch("/api/dashboard/visits", {
+          cache: "no-store",
+        });
+
+        const data = (await res.json()) as
+          | {
+              ok: true;
+              visits: Array<{
+                id: string;
+                propertyId: string;
+                preferredDate?: string;
+                preferredTime?: string;
+                message?: string;
+                createdAt: string;
+                status: string;
+                propertyTitle: string;
+              }>;
+            }
+          | { ok: false; error?: { code?: string; message?: string } };
+
+        if (!res.ok || !data.ok) {
+          readLocal();
+          return;
+        }
+
+        if (cancelled) return;
+
+        const mapped: VisitRequestStoreItem[] = data.visits.map((v) => ({
+          id: v.id,
+          propertyId: v.propertyId,
+          name: "—",
+          whatsapp: "—",
+          preferredDate: v.preferredDate,
+          preferredTime: v.preferredTime,
+          message: v.message,
+          createdAt: v.createdAt,
+          status: (v.status as VisitRequestStoreItem["status"]) ?? "PENDING",
+        }));
+
+        setItems(mapped);
+      } catch {
+        readLocal();
+      }
+    };
+
+    if (session?.id) void readDb();
+    else readLocal();
+
+    window.addEventListener("imosafe:visitRequests", readLocal);
+    return () => {
+      cancelled = true;
+      window.removeEventListener("imosafe:visitRequests", readLocal);
+    };
+  }, [session?.id]);
 
   const rows = useMemo(
     () =>

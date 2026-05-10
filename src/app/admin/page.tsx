@@ -7,10 +7,10 @@ import { SiteFooter } from "@/components/site/SiteFooter";
 import { SiteHeader } from "@/components/site/SiteHeader";
 import { DEMO_AGENCIES, DEMO_PROPERTIES } from "@/lib/demoData";
 import { getScamReports } from "@/lib/mockDataStore";
-import { useMockSession } from "@/lib/useMockSession";
+import { useAuthMe } from "@/lib/useAuthMe";
 
 export default function AdminHomePage() {
-  const session = useMockSession();
+  const { user: session } = useAuthMe();
   const [userStats, setUserStats] = useState<{
     total: number;
     USER: number;
@@ -35,7 +35,7 @@ export default function AdminHomePage() {
       try {
         setError(null);
         const res = await fetch("/api/admin/stats", {
-          headers: { "x-imosafe-session-id": session.id },
+          cache: "no-store",
         });
 
         const data = (await res.json()) as

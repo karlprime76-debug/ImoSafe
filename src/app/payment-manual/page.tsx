@@ -74,16 +74,34 @@ export default function ManualPaymentPage() {
             ) : (
               <form
                 className="mt-5 grid gap-3"
-                onSubmit={(e) => {
+                onSubmit={async (e) => {
                   e.preventDefault();
-                  addManualPaymentRequest({
+
+                  const payload = {
                     fullName,
                     whatsAppPhone,
                     email: email || undefined,
                     offer,
                     message: message || undefined,
                     proofHint: proofHint || undefined,
-                  });
+                  };
+
+                  try {
+                    const res = await fetch("/api/manual-payments", {
+                      method: "POST",
+                      headers: { "content-type": "application/json" },
+                      body: JSON.stringify(payload),
+                    });
+                    const data = (await res.json()) as { ok: true } | { ok: false };
+                    if (res.ok && data.ok) {
+                      setDone(true);
+                      return;
+                    }
+                  } catch {
+                    // fallback below
+                  }
+
+                  addManualPaymentRequest(payload);
                   setDone(true);
                 }}
               >

@@ -5,7 +5,7 @@ import { useCallback, useEffect, useState } from "react";
 
 import { SiteFooter } from "@/components/site/SiteFooter";
 import { SiteHeader } from "@/components/site/SiteHeader";
-import { useMockSession } from "@/lib/useMockSession";
+import { useAuthMe } from "@/lib/useAuthMe";
 
 type Row = {
   id: string;
@@ -19,7 +19,7 @@ type Row = {
 };
 
 export default function DashboardStaysPage() {
-  const session = useMockSession();
+  const { user: session } = useAuthMe();
   const [rows, setRows] = useState<Row[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -33,9 +33,7 @@ export default function DashboardStaysPage() {
       setLoading(true);
       setError(null);
       const res = await fetch("/api/dashboard/stays", {
-        headers: {
-          "x-imosafe-session-id": session.id,
-        },
+        cache: "no-store",
       });
 
       const data = (await res.json()) as
@@ -132,7 +130,6 @@ export default function DashboardStaysPage() {
                         method: "PUT",
                         headers: {
                           "content-type": "application/json",
-                          "x-imosafe-session-id": session.id,
                         },
                         body: JSON.stringify({ action: "HIDE" }),
                       });
@@ -150,7 +147,6 @@ export default function DashboardStaysPage() {
                         method: "PUT",
                         headers: {
                           "content-type": "application/json",
-                          "x-imosafe-session-id": session.id,
                         },
                         body: JSON.stringify({ action: "REACTIVATE" }),
                       });

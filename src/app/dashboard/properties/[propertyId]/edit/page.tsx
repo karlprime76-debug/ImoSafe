@@ -1,11 +1,12 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 
 import { SiteFooter } from "@/components/site/SiteFooter";
 import { SiteHeader } from "@/components/site/SiteHeader";
-import { useMockSession } from "@/lib/useMockSession";
+import { useAuthMe } from "@/lib/useAuthMe";
 
 type ImageItem = { url: string; alt?: string | null };
 
@@ -34,7 +35,7 @@ type PropertyDto = {
 };
 
 export default function EditPropertyPage({ params }: { params: { propertyId: string } }) {
-  const session = useMockSession();
+  const { user: session } = useAuthMe();
   const propertyId = decodeURIComponent(params.propertyId).trim();
 
   const [loading, setLoading] = useState(true);
@@ -93,7 +94,7 @@ export default function EditPropertyPage({ params }: { params: { propertyId: str
         setLoading(true);
         setError(null);
         const res = await fetch(`/api/dashboard/properties/${encodeURIComponent(propertyId)}`, {
-          headers: { "x-imosafe-session-id": session.id },
+          cache: "no-store",
         });
         const data = (await res.json()) as
           | { ok: true; property: PropertyDto }
@@ -148,7 +149,6 @@ export default function EditPropertyPage({ params }: { params: { propertyId: str
         method: "PUT",
         headers: {
           "content-type": "application/json",
-          "x-imosafe-session-id": session.id,
         },
         body: JSON.stringify({ action }),
       });
@@ -448,7 +448,9 @@ export default function EditPropertyPage({ params }: { params: { propertyId: str
                 {images.length ? (
                   <div className="mt-3 grid gap-3">
                     <div className="overflow-hidden rounded-3xl border border-black/10 bg-slate-100 shadow-sm dark:border-white/10 dark:bg-white/10">
-                      <img src={images[0]?.url} alt={images[0]?.alt ?? title} className="h-[220px] w-full object-cover sm:h-[320px]" />
+                      <div className="relative h-[220px] w-full sm:h-[320px]">
+                        <Image src={images[0]?.url ?? ""} alt={images[0]?.alt ?? title} fill className="object-cover" />
+                      </div>
                     </div>
 
                     <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
@@ -467,7 +469,9 @@ export default function EditPropertyPage({ params }: { params: { propertyId: str
                             }}
                             aria-label={idx === 0 ? "Image principale" : "Définir comme principale"}
                           >
-                            <img src={img.url} alt={img.alt ?? title} className="h-20 w-full object-cover" loading="lazy" />
+                            <div className="relative h-20 w-full">
+                              <Image src={img.url} alt={img.alt ?? title} fill className="object-cover" />
+                            </div>
                           </button>
 
                           <input

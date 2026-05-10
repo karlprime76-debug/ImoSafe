@@ -5,7 +5,7 @@ import { useEffect, useMemo, useState } from "react";
 import { SiteFooter } from "@/components/site/SiteFooter";
 import { SiteHeader } from "@/components/site/SiteHeader";
 import { StatusBadge } from "@/components/ui/StatusBadge";
-import { useMockSession } from "@/lib/useMockSession";
+import { useAuthMe } from "@/lib/useAuthMe";
 
 type AdminUser = {
   id: string;
@@ -29,7 +29,7 @@ function roleTone(role: AdminUser["role"]) {
 }
 
 export default function AdminUsersPage() {
-  const session = useMockSession();
+  const { user: session } = useAuthMe();
   const [users, setUsers] = useState<AdminUser[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -44,7 +44,7 @@ export default function AdminUsersPage() {
         setLoading(true);
         setError(null);
         const res = await fetch("/api/admin/users", {
-          headers: { "x-imosafe-session-id": session.id },
+          cache: "no-store",
         });
 
         const data = (await res.json()) as UsersSuccess | UsersError;
