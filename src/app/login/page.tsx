@@ -6,11 +6,12 @@ import { useState } from "react";
 
 import { SiteFooter } from "@/components/site/SiteFooter";
 import { SiteHeader } from "@/components/site/SiteHeader";
-import type { MockRole } from "@/lib/mockSession";
+
+type UserRole = "USER" | "OWNER" | "AGENCY" | "HOST" | "ADMIN";
 
 type LoginSuccess = {
   ok: true;
-  user: { id: string; name: string; email: string; phone?: string | null; role: MockRole; createdAt: string };
+  user: { id: string; name: string; email: string; phone?: string | null; role: UserRole; createdAt: string };
 };
 
 type LoginError = {
@@ -29,9 +30,9 @@ export default function LoginPage() {
     <div className="min-h-full">
       <SiteHeader />
 
-      <main className="mx-auto w-full max-w-md px-4 py-10 sm:px-6">
+      <main className="mx-auto w-full max-w-md px-4 py-10 pb-24 sm:px-6">
         <h1 className="text-2xl font-extrabold tracking-tight">Connexion</h1>
-        <p className="mt-2 text-sm text-slate-600 dark:text-white/70">MVP: connexion mock (pas de DB).</p>
+        <p className="mt-2 text-sm text-slate-600 dark:text-white/70">Connecte-toi pour accéder à ton dashboard.</p>
 
         <form
           className="mt-6 grid gap-3 rounded-3xl border border-black/10 bg-white p-6 shadow-sm dark:border-white/10 dark:bg-white/5"
@@ -57,18 +58,25 @@ export default function LoginPage() {
                 body: JSON.stringify({ email: normalized, password }),
               });
 
-              const data = (await res.json()) as LoginSuccess | LoginError;
+              let data: LoginSuccess | LoginError | null = null;
+              try {
+                data = (await res.json()) as LoginSuccess | LoginError;
+              } catch {
+                data = null;
+              }
 
-              if (!res.ok || !data.ok) {
-                const code = data.ok ? undefined : data.error?.code;
+              if (!res.ok || !data || !data.ok) {
+                const code = data && !data.ok ? data.error?.code : undefined;
                 if (code === "ACCOUNT_NOT_FOUND") {
-                  setError("Aucun compte trouvé.");
+                  setError("Aucun compte trouvé avec cet email.");
                 } else if (code === "INVALID_PASSWORD") {
                   setError("Mot de passe incorrect.");
                 } else if (code === "INVALID_PAYLOAD") {
                   setError("Informations invalides.");
+                } else if (code === "SERVER_ERROR") {
+                  setError("Erreur serveur. Réessayez ou contactez ImoSafe.");
                 } else {
-                  setError((data.ok ? undefined : data.error?.message) || "Erreur serveur.");
+                  setError((data && !data.ok ? data.error?.message : undefined) || "Erreur serveur. Réessayez ou contactez ImoSafe.");
                 }
                 return;
               }
@@ -76,7 +84,7 @@ export default function LoginPage() {
               void data.user;
               router.push("/dashboard");
             } catch {
-              setError("Erreur serveur.");
+              setError("Erreur serveur. Réessayez ou contactez ImoSafe.");
             } finally {
               setLoading(false);
             }
@@ -104,6 +112,11 @@ export default function LoginPage() {
               placeholder="••••••••"
               required
             />
+            <div className="mt-2 text-sm">
+              <Link href="/forgot-password" className="font-semibold text-emerald-700 hover:underline dark:text-emerald-300">
+                Mot de passe oublié ?
+              </Link>
+            </div>
           </div>
 
           {error ? <div className="text-sm font-semibold text-rose-700 dark:text-rose-300">{error}</div> : null}
