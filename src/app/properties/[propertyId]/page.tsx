@@ -11,7 +11,7 @@ import { VerificationBadge } from "@/components/ui/VerificationBadge";
 import { SiteFooter } from "@/components/site/SiteFooter";
 import { SiteHeader } from "@/components/site/SiteHeader";
 import { RecordRecent } from "@/components/properties/RecordRecent";
-import type { VerificationStatus } from "@/lib/demoData";
+import { DEMO_PROPERTIES, type VerificationStatus } from "@/lib/demoData";
 
 export default async function PropertyDetailPage({
   params,
@@ -21,11 +21,10 @@ export default async function PropertyDetailPage({
   const resolved = await Promise.resolve(params);
   const propertyId = decodeURIComponent(resolved.propertyId).trim();
 
-  const res = await fetch(`${process.env.NEXT_PUBLIC_SITE_URL ?? ""}/api/public/properties/${encodeURIComponent(propertyId)}`, {
-    cache: "no-store",
-  });
+  const apiUrl = `${process.env.NEXT_PUBLIC_SITE_URL ?? ""}/api/public/properties/${encodeURIComponent(propertyId)}`;
 
-  const data = (await res.json()) as
+  let res: Response | null = null;
+  let data:
     | {
         ok: true;
         property: {
@@ -48,9 +47,46 @@ export default async function PropertyDetailPage({
           documentsSummary: { providedCount: number; pendingCount: number; verifiedCount: number };
         };
       }
-    | { ok: false; error?: { message?: string } };
+    | { ok: false; error?: { message?: string } }
+    | null = null;
 
-  if (!res.ok || !data.ok) return notFound();
+  try {
+    res = await fetch(apiUrl, { cache: "no-store" });
+    const contentType = res.headers.get("content-type") ?? "";
+    if (contentType.includes("application/json")) {
+      data = (await res.json()) as typeof data;
+    }
+  } catch {
+    // handled below
+  }
+
+  if (!res || !res.ok || !data || !data.ok) {
+    const demo = DEMO_PROPERTIES.find((p) => p.id === propertyId);
+    if (!demo) return notFound();
+
+    data = {
+      ok: true,
+      property: {
+        id: demo.id,
+        title: demo.title,
+        description: demo.description,
+        type: demo.type,
+        transactionType: demo.transactionType,
+        price: demo.price,
+        city: demo.city,
+        neighborhood: demo.neighborhood,
+        address: demo.address,
+        bedrooms: demo.bedrooms,
+        bathrooms: demo.bathrooms,
+        area: demo.area,
+        images: demo.images,
+        verificationStatus: demo.verificationStatus,
+        trustScore: demo.trustScore,
+        postedBy: demo.postedBy,
+        documentsSummary: { providedCount: 0, pendingCount: 0, verifiedCount: 0 },
+      },
+    };
+  }
 
   const property = data.property;
   const trustScore = property.trustScore;
