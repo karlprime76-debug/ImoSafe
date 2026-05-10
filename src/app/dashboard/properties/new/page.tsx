@@ -5,6 +5,7 @@ import { useState } from "react";
 
 import { SiteFooter } from "@/components/site/SiteFooter";
 import { SiteHeader } from "@/components/site/SiteHeader";
+import { ImageUploader } from "@/components/uploads/ImageUploader";
 import { useMockSession } from "@/lib/useMockSession";
 
 export default function NewPropertyPage() {
@@ -23,8 +24,6 @@ export default function NewPropertyPage() {
   const [address, setAddress] = useState("");
   const [contactWhatsApp, setContactWhatsApp] = useState("");
   const [notes, setNotes] = useState("");
-  const [imageUrl, setImageUrl] = useState("");
-  const [imageAlt, setImageAlt] = useState("");
   const [images, setImages] = useState<Array<{ url: string; alt?: string }>>([]);
   const [bedrooms, setBedrooms] = useState("");
   const [bathrooms, setBathrooms] = useState("");
@@ -36,25 +35,6 @@ export default function NewPropertyPage() {
   const [docName, setDocName] = useState("");
   const [docUrl, setDocUrl] = useState("");
   const [documents, setDocuments] = useState<Array<{ id: string; type: string; name: string; url: string; status: "PENDING" }>>([]);
-
-  const addImages = (raw: string, alt?: string) => {
-    const urls = raw
-      .split(",")
-      .map((s) => s.trim())
-      .filter(Boolean);
-    if (!urls.length) return;
-
-    setImages((prev) => {
-      const existing = new Set(prev.map((i) => i.url));
-      const next = [...prev];
-      for (const url of urls) {
-        if (existing.has(url)) continue;
-        next.push({ url, alt: alt?.trim() || undefined });
-        existing.add(url);
-      }
-      return next;
-    });
-  };
 
   return (
     <div className="min-h-full">
@@ -263,105 +243,17 @@ export default function NewPropertyPage() {
               </div>
 
               <div>
-                <label className="text-xs font-semibold text-slate-700 dark:text-white/70">Photos (URLs)</label>
-                <div className="mt-1 grid gap-2 sm:grid-cols-[1fr_200px]">
-                  <input
-                    className="h-11 w-full rounded-2xl border border-black/10 bg-white px-3 text-sm text-slate-900 shadow-sm outline-none focus:ring-2 focus:ring-emerald-500/30 dark:border-white/10 dark:bg-black/20 dark:text-white"
-                    value={imageUrl}
-                    onChange={(e) => setImageUrl(e.target.value)}
-                    placeholder="Colle une URL (ou plusieurs séparées par des virgules)"
-                  />
-                  <input
-                    className="h-11 w-full rounded-2xl border border-black/10 bg-white px-3 text-sm text-slate-900 shadow-sm outline-none focus:ring-2 focus:ring-emerald-500/30 dark:border-white/10 dark:bg-black/20 dark:text-white"
-                    value={imageAlt}
-                    onChange={(e) => setImageAlt(e.target.value)}
-                    placeholder="Alt (optionnel)"
+                <label className="text-xs font-semibold text-slate-700 dark:text-white/70">Photos</label>
+                <div className="mt-1">
+                  <ImageUploader
+                    bucket="property-images"
+                    value={images}
+                    onChange={setImages}
+                    maxFiles={8}
+                    folderPrefix={undefined}
+                    userId={session?.id}
                   />
                 </div>
-
-                <div className="mt-2 flex flex-wrap gap-2">
-                  <button
-                    type="button"
-                    className="inline-flex h-10 items-center justify-center rounded-2xl bg-[#0B2A4A] px-4 text-sm font-semibold text-white shadow-sm transition hover:opacity-95"
-                    onClick={() => {
-                      addImages(imageUrl, imageAlt);
-                      setImageUrl("");
-                      setImageAlt("");
-                    }}
-                  >
-                    Ajouter à la galerie
-                  </button>
-                  <button
-                    type="button"
-                    className="inline-flex h-10 items-center justify-center rounded-2xl border border-black/10 bg-white px-4 text-sm font-semibold text-slate-900 shadow-sm transition hover:bg-slate-50 dark:border-white/10 dark:bg-white/5 dark:text-white dark:hover:bg-white/10"
-                    onClick={() => setImages([])}
-                    disabled={!images.length}
-                  >
-                    Vider
-                  </button>
-                </div>
-
-                <div className="mt-3 text-xs text-slate-600 dark:text-white/60">
-                  La première image est l’image principale.
-                </div>
-
-                {images.length ? (
-                  <div className="mt-3 grid gap-3">
-                    <div className="overflow-hidden rounded-3xl border border-black/10 bg-slate-100 shadow-sm dark:border-white/10 dark:bg-white/10">
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img
-                        src={images[0]?.url}
-                        alt={images[0]?.alt ?? title}
-                        className="h-[220px] w-full object-cover sm:h-[320px]"
-                      />
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-                      {images.map((img, idx) => (
-                        <div key={img.url} className="rounded-2xl border border-black/10 bg-white p-2 dark:border-white/10 dark:bg-white/5">
-                          <button
-                            type="button"
-                            className="block w-full overflow-hidden rounded-xl bg-slate-100 dark:bg-white/10"
-                            onClick={() => {
-                              setImages((prev) => {
-                                const next = [...prev];
-                                const [picked] = next.splice(idx, 1);
-                                next.unshift(picked);
-                                return next;
-                              });
-                            }}
-                            aria-label={idx === 0 ? "Image principale" : "Définir comme principale"}
-                          >
-                            {/* eslint-disable-next-line @next/next/no-img-element */}
-                            <img src={img.url} alt={img.alt ?? title} className="h-20 w-full object-cover" loading="lazy" />
-                          </button>
-
-                          <input
-                            className="mt-2 h-9 w-full rounded-xl border border-black/10 bg-white px-2 text-xs text-slate-900 shadow-sm outline-none focus:ring-2 focus:ring-emerald-500/30 dark:border-white/10 dark:bg-black/20 dark:text-white"
-                            value={img.alt ?? ""}
-                            onChange={(e) => {
-                              const value = e.target.value;
-                              setImages((prev) => prev.map((p) => (p.url === img.url ? { ...p, alt: value.trim() || undefined } : p)));
-                            }}
-                            placeholder="Alt (optionnel)"
-                          />
-
-                          <button
-                            type="button"
-                            className="mt-2 inline-flex h-9 w-full items-center justify-center rounded-xl bg-rose-600 px-3 text-xs font-semibold text-white shadow-sm transition hover:opacity-95"
-                            onClick={() => setImages((prev) => prev.filter((p) => p.url !== img.url))}
-                          >
-                            Supprimer
-                          </button>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                ) : (
-                  <div className="mt-3 rounded-2xl border border-dashed border-black/15 bg-slate-50 p-4 text-sm text-slate-600 dark:border-white/15 dark:bg-black/20 dark:text-white/60">
-                    Aucune image. Ajoute au moins une URL pour activer la galerie.
-                  </div>
-                )}
               </div>
 
               <div className="mt-2">
