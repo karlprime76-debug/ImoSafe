@@ -10,15 +10,54 @@ import { TrustScoreBadge } from "@/components/ui/TrustScoreBadge";
 import { VerificationBadge } from "@/components/ui/VerificationBadge";
 import { SiteFooter } from "@/components/site/SiteFooter";
 import { SiteHeader } from "@/components/site/SiteHeader";
-import { DEMO_PROPERTIES } from "@/lib/demoData";
 import { RecordRecent } from "@/components/properties/RecordRecent";
+import type { VerificationStatus } from "@/lib/demoData";
 
-export default function PropertyDetailPage({ params }: { params: { propertyId: string } }) {
-  const property = DEMO_PROPERTIES.find((p) => p.id === params.propertyId);
+export default async function PropertyDetailPage({
+  params,
+}: {
+  params: Promise<{ propertyId: string }> | { propertyId: string };
+}) {
+  const resolved = await Promise.resolve(params);
+  const propertyId = decodeURIComponent(resolved.propertyId).trim();
 
-  if (!property) return notFound();
+  const res = await fetch(`${process.env.NEXT_PUBLIC_SITE_URL ?? ""}/api/public/properties/${encodeURIComponent(propertyId)}`, {
+    cache: "no-store",
+  });
 
-  const trustScore = (property as unknown as { trustScore?: number }).trustScore;
+  const data = (await res.json()) as
+    | {
+        ok: true;
+        property: {
+          id: string;
+          title: string;
+          description: string;
+          type: string;
+          transactionType: string;
+          price: number;
+          city: string;
+          neighborhood: string;
+          address?: string;
+          bedrooms?: number;
+          bathrooms?: number;
+          area?: number;
+          images: Array<string | { url: string; alt?: string }>;
+          verificationStatus: string;
+          trustScore?: number;
+          postedBy: { kind: "agency" | "owner"; name: string };
+          documentsSummary: { providedCount: number; pendingCount: number; verifiedCount: number };
+        };
+      }
+    | { ok: false; error?: { message?: string } };
+
+  if (!res.ok || !data.ok) return notFound();
+
+  const property = data.property;
+  const trustScore = property.trustScore;
+  const verificationStatus = property.verificationStatus as VerificationStatus;
+  const providedCount = property.documentsSummary.providedCount;
+  const pendingCount = property.documentsSummary.pendingCount;
+  const verifiedCount = property.documentsSummary.verifiedCount;
 
   return (
     <div className="min-h-full">
@@ -49,7 +88,7 @@ export default function PropertyDetailPage({ params }: { params: { propertyId: s
                     {typeof trustScore === "number" ? (
                       <TrustScoreBadge score={trustScore} />
                     ) : null}
-                    <VerificationBadge status={property.verificationStatus} />
+                    <VerificationBadge status={verificationStatus} />
                   </div>
                 </div>
 
@@ -61,6 +100,18 @@ export default function PropertyDetailPage({ params }: { params: { propertyId: s
                 </div>
 
                 <div className="mt-4 text-sm text-slate-700 dark:text-white/70">{property.description}</div>
+
+                <div className="mt-4 rounded-2xl border border-black/10 bg-slate-50 p-4 text-sm text-slate-700 dark:border-white/10 dark:bg-black/20 dark:text-white/70">
+                  <div className="text-xs font-extrabold text-slate-900 dark:text-white">Documents (public)</div>
+                  <div className="mt-2 grid gap-2 sm:grid-cols-3">
+                    <DocStat label="Documents fournis" value={providedCount} />
+                    <DocStat label="En cours de vérification" value={pendingCount} />
+                    <DocStat label="Documents vérifiés" value={verifiedCount} />
+                  </div>
+                  <div className="mt-2 text-xs text-slate-600 dark:text-white/60">
+                    Pour des raisons de sécurité, les liens vers les documents ne sont visibles que par l’équipe ImoSafe et le propriétaire.
+                  </div>
+                </div>
 
                 <div className="mt-4 grid gap-2 text-sm text-slate-700 dark:text-white/70 sm:grid-cols-3">
                   <div className="rounded-2xl border border-black/10 bg-slate-50 p-3 dark:border-white/10 dark:bg-black/20">
@@ -80,6 +131,8 @@ export default function PropertyDetailPage({ params }: { params: { propertyId: s
                 <div className="mt-4 rounded-2xl border border-amber-600/20 bg-amber-500/10 p-4 text-sm text-amber-900 ring-1 ring-amber-600/20 dark:border-amber-400/20 dark:text-amber-100 dark:ring-amber-400/20">
                   <div className="font-semibold">Conseil sécurité</div>
                   <div className="mt-1">Ne payez jamais avant visite ou vérification.</div>
+                  <div className="mt-1">Ne versez jamais d’argent hors canal vérifié.</div>
+                  <div className="mt-1">ImoSafe réduit les risques mais ne remplace pas une vérification juridique complète.</div>
                   <div className="mt-2 text-xs">Ce score est un indicateur d’aide à la décision, pas une garantie.</div>
                 </div>
 
@@ -109,7 +162,7 @@ export default function PropertyDetailPage({ params }: { params: { propertyId: s
                       Une demande = plus de traçabilité et moins de risques.
                     </div>
                   </div>
-                  <VerificationBadge status={property.verificationStatus} />
+                  <VerificationBadge status={verificationStatus} />
                 </div>
 
                 <div className="mt-4">
@@ -137,6 +190,15 @@ export default function PropertyDetailPage({ params }: { params: { propertyId: s
       </main>
 
       <SiteFooter />
+    </div>
+  );
+}
+
+function DocStat({ label, value }: { label: string; value: number }) {
+  return (
+    <div className="rounded-2xl border border-black/10 bg-white p-3 text-xs dark:border-white/10 dark:bg-white/5">
+      <div className="font-semibold text-slate-600 dark:text-white/60">{label}</div>
+      <div className="mt-1 text-base font-extrabold text-slate-900 dark:text-white">{value}</div>
     </div>
   );
 }

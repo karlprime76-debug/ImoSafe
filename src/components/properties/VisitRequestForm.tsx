@@ -5,6 +5,8 @@ import { useState } from "react";
 import { addVisitRequest } from "@/lib/mockDataStore";
 
 export function VisitRequestForm({ propertyId }: { propertyId: string }) {
+  const [name, setName] = useState("");
+  const [whatsapp, setWhatsapp] = useState("");
   const [preferredDate, setPreferredDate] = useState("");
   const [preferredTime, setPreferredTime] = useState("");
   const [message, setMessage] = useState("");
@@ -25,13 +27,39 @@ export function VisitRequestForm({ propertyId }: { propertyId: string }) {
         e.preventDefault();
         addVisitRequest({
           propertyId,
+          name: name.trim(),
+          whatsapp: whatsapp.trim(),
           preferredDate: preferredDate || undefined,
           preferredTime: preferredTime || undefined,
           message: message || undefined,
+          status: "PENDING",
         });
         setDone(true);
       }}
     >
+      <div className="grid gap-3 sm:grid-cols-2">
+        <div>
+          <label className="text-xs font-semibold text-slate-700 dark:text-white/70">Nom</label>
+          <input
+            className="mt-1 h-11 w-full rounded-2xl border border-black/10 bg-white px-3 text-sm text-slate-900 shadow-sm outline-none focus:ring-2 focus:ring-emerald-500/30 dark:border-white/10 dark:bg-black/20 dark:text-white"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            placeholder="Ton nom"
+            required
+          />
+        </div>
+        <div>
+          <label className="text-xs font-semibold text-slate-700 dark:text-white/70">WhatsApp</label>
+          <input
+            className="mt-1 h-11 w-full rounded-2xl border border-black/10 bg-white px-3 text-sm text-slate-900 shadow-sm outline-none focus:ring-2 focus:ring-emerald-500/30 dark:border-white/10 dark:bg-black/20 dark:text-white"
+            value={whatsapp}
+            onChange={(e) => setWhatsapp(e.target.value)}
+            placeholder="+229..."
+            required
+          />
+        </div>
+      </div>
+
       <div className="grid gap-3 sm:grid-cols-2">
         <div>
           <label className="text-xs font-semibold text-slate-700 dark:text-white/70">Date</label>

@@ -8,14 +8,85 @@ import { StayGallery } from "@/components/stays/StayGallery";
 import { PriceTag } from "@/components/ui/PriceTag";
 import { StatusBadge } from "@/components/ui/StatusBadge";
 import { TrustScoreBadge } from "@/components/ui/TrustScoreBadge";
-import { DEMO_STAYS } from "@/lib/demoData";
+import type { Stay } from "@/lib/demoData";
 
 export default async function StayDetailPage({ params }: { params: Promise<{ stayId: string }> }) {
   const { stayId: rawStayId } = await params;
   const stayId = decodeURIComponent(rawStayId).trim();
-  const stay = DEMO_STAYS.find((s) => s.id === stayId);
 
-  if (!stay) return notFound();
+  const res = await fetch(`${process.env.NEXT_PUBLIC_SITE_URL ?? ""}/api/public/stays/${encodeURIComponent(stayId)}`, {
+    cache: "no-store",
+  });
+
+  const data = (await res.json()) as
+    | {
+        ok: true;
+        stay: {
+          id: string;
+          title: string;
+          description: string;
+          city: string;
+          neighborhood: string;
+          addressApprox?: string;
+          pricePerNight: number;
+          pricePerWeek?: number;
+          pricePerMonth?: number;
+          cleaningFee?: number;
+          deposit?: number;
+          maxGuests: number;
+          bedrooms: number;
+          bathrooms: number;
+          amenities: string[];
+          images: Array<{ url: string; alt?: string }>;
+          availabilityStatus: string;
+          verificationStatus: string;
+          trustScore?: number;
+          hostName: string;
+          hostVerified: boolean;
+          photosVerified: boolean;
+          checkInTime?: string;
+          checkOutTime?: string;
+          rules: string[];
+          documentsSummary: { providedCount: number; pendingCount: number; verifiedCount: number };
+        };
+      }
+    | { ok: false; error?: { message?: string } };
+
+  if (!res.ok || !data.ok) return notFound();
+
+  const dto = data.stay;
+
+  const stay: Stay = {
+    id: dto.id,
+    title: dto.title,
+    description: dto.description,
+    city: dto.city,
+    neighborhood: dto.neighborhood,
+    addressApprox: dto.addressApprox,
+    pricePerNight: dto.pricePerNight,
+    pricePerWeek: dto.pricePerWeek,
+    pricePerMonth: dto.pricePerMonth,
+    cleaningFee: dto.cleaningFee,
+    deposit: dto.deposit,
+    maxGuests: dto.maxGuests,
+    bedrooms: dto.bedrooms,
+    bathrooms: dto.bathrooms,
+    amenities: dto.amenities,
+    images: dto.images.map((i) => i.url),
+    availabilityStatus: dto.availabilityStatus as Stay["availabilityStatus"],
+    verificationStatus: dto.verificationStatus as Stay["verificationStatus"],
+    trustScore: dto.trustScore,
+    hostName: dto.hostName,
+    hostVerified: dto.hostVerified,
+    photosVerified: dto.photosVerified,
+    checkInTime: dto.checkInTime,
+    checkOutTime: dto.checkOutTime,
+    rules: dto.rules,
+  };
+
+  const providedCount = dto.documentsSummary.providedCount;
+  const pendingCount = dto.documentsSummary.pendingCount;
+  const verifiedCount = dto.documentsSummary.verifiedCount;
 
   return (
     <div className="min-h-full">
@@ -28,7 +99,13 @@ export default async function StayDetailPage({ params }: { params: Promise<{ sta
 
         <div className="mt-4 grid gap-6 lg:grid-cols-[1.35fr_0.9fr]">
           <div className="grid gap-4">
-            <StayGallery images={stay.images} title={stay.title} />
+            <StayGallery
+              images={dto.images}
+              title={stay.title}
+              isStayVerified={stay.verificationStatus === "VERIFIED"}
+              isHostVerified={stay.hostVerified}
+              arePhotosVerified={stay.photosVerified}
+            />
 
             <div className="rounded-3xl border border-black/10 bg-white p-5 shadow-sm dark:border-white/10 dark:bg-white/5">
               <div className="flex flex-wrap items-start justify-between gap-3">
@@ -61,6 +138,18 @@ export default async function StayDetailPage({ params }: { params: Promise<{ sta
 
               <div className="mt-4 grid gap-2 text-sm text-slate-700 dark:text-white/70">
                 <div>{stay.description}</div>
+              </div>
+
+              <div className="mt-4 rounded-2xl border border-black/10 bg-slate-50 p-4 text-sm text-slate-700 dark:border-white/10 dark:bg-black/20 dark:text-white/70">
+                <div className="text-xs font-extrabold text-slate-900 dark:text-white">Documents (public)</div>
+                <div className="mt-2 grid gap-2 sm:grid-cols-3">
+                  <DocStat label="Documents fournis" value={providedCount} />
+                  <DocStat label="En cours de vérification" value={pendingCount} />
+                  <DocStat label="Documents vérifiés" value={verifiedCount} />
+                </div>
+                <div className="mt-2 text-xs text-slate-600 dark:text-white/60">
+                  Pour des raisons de sécurité, les liens vers les documents ne sont visibles que par l’équipe ImoSafe et l’hôte.
+                </div>
               </div>
 
               <div className="mt-5 grid gap-3 sm:grid-cols-2">
@@ -103,6 +192,8 @@ export default async function StayDetailPage({ params }: { params: Promise<{ sta
                   <div className="mt-1">
                     Ne versez jamais d’argent en dehors d’un canal vérifié. Méfiez-vous des prix trop bas et confirmez toujours la disponibilité.
                   </div>
+                  <div className="mt-1">Ne payez jamais avant visite ou vérification.</div>
+                  <div className="mt-1">ImoSafe réduit les risques mais ne remplace pas une vérification juridique complète.</div>
                 </div>
               </div>
             </div>
@@ -151,6 +242,15 @@ function InfoLine({ label, value }: { label: string; value: string }) {
     <div className="rounded-2xl border border-black/10 bg-slate-50 p-3 text-xs dark:border-white/10 dark:bg-black/20">
       <div className="text-[11px] font-semibold text-slate-600 dark:text-white/60">{label}</div>
       <div className="mt-1 font-bold text-slate-900 dark:text-white">{value}</div>
+    </div>
+  );
+}
+
+function DocStat({ label, value }: { label: string; value: number }) {
+  return (
+    <div className="rounded-2xl border border-black/10 bg-white p-3 text-xs dark:border-white/10 dark:bg-white/5">
+      <div className="font-semibold text-slate-600 dark:text-white/60">{label}</div>
+      <div className="mt-1 text-base font-extrabold text-slate-900 dark:text-white">{value}</div>
     </div>
   );
 }

@@ -99,8 +99,10 @@ export default function AdminHomePage() {
             <div className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
               <AdminLink href="/admin/users" title="Gérer utilisateurs" />
               <AdminLink href="/admin/properties" title="Vérifier annonces" />
+              <AdminLink href="/admin/stays" title="Vérifier séjours" />
               <AdminLink href="/admin/agencies" title="Vérifier agences" />
               <AdminLink href="/admin/reports" title="Traiter signalements" />
+              <AdminLink href="/admin/manual-payments" title="Paiements manuels" />
             </div>
           </>
         )}

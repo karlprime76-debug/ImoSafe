@@ -1,41 +1,71 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import { SiteFooter } from "@/components/site/SiteFooter";
 import { SiteHeader } from "@/components/site/SiteHeader";
 import { useMockSession } from "@/lib/useMockSession";
 
-export default function NewPropertyPage() {
+type ImageItem = { url: string; alt?: string | null };
+
+type DocItem = { id: string; type: string; fileName: string | null; fileUrl: string; verificationStatus: string };
+
+type PropertyDto = {
+  id: string;
+  title: string;
+  description: string;
+  type: string;
+  transactionType: string;
+  price: number;
+  city: string;
+  neighborhood: string | null;
+  address: string | null;
+  bedrooms: number | null;
+  bathrooms: number | null;
+  area: number | null;
+  contactWhatsApp: string | null;
+  notes: string | null;
+  status: string;
+  verificationStatus: string;
+  isHidden: boolean;
+  propertyImages: Array<{ url: string; alt: string | null; sortOrder: number }>;
+  documents: DocItem[];
+};
+
+export default function EditPropertyPage({ params }: { params: { propertyId: string } }) {
   const session = useMockSession();
-  const [done, setDone] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const propertyId = decodeURIComponent(params.propertyId).trim();
+
+  const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [doneMsg, setDoneMsg] = useState<string | null>(null);
 
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [transactionType, setTransactionType] = useState<"RENT" | "SALE">("RENT");
   const [type, setType] = useState<"HOUSE" | "APARTMENT" | "LAND" | "OFFICE" | "SHOP" | "WAREHOUSE">("APARTMENT");
   const [price, setPrice] = useState("");
-  const [city, setCity] = useState("Cotonou");
+  const [city, setCity] = useState("");
   const [neighborhood, setNeighborhood] = useState("");
   const [address, setAddress] = useState("");
-  const [contactWhatsApp, setContactWhatsApp] = useState("");
-  const [notes, setNotes] = useState("");
-  const [imageUrl, setImageUrl] = useState("");
-  const [imageAlt, setImageAlt] = useState("");
-  const [images, setImages] = useState<Array<{ url: string; alt?: string }>>([]);
   const [bedrooms, setBedrooms] = useState("");
   const [bathrooms, setBathrooms] = useState("");
   const [area, setArea] = useState("");
+  const [contactWhatsApp, setContactWhatsApp] = useState("");
+  const [notes, setNotes] = useState("");
+
+  const [images, setImages] = useState<ImageItem[]>([]);
+  const [imageUrl, setImageUrl] = useState("");
+  const [imageAlt, setImageAlt] = useState("");
 
   const [docType, setDocType] = useState<
     "TITLE_DEED" | "SALE_CONVENTION" | "LEASE" | "RECEIPT" | "RENTAL_AUTH" | "OWNER_ID" | "OTHER"
   >("TITLE_DEED");
   const [docName, setDocName] = useState("");
   const [docUrl, setDocUrl] = useState("");
-  const [documents, setDocuments] = useState<Array<{ id: string; type: string; name: string; url: string; status: "PENDING" }>>([]);
+  const [documents, setDocuments] = useState<Array<{ type: string; name: string; url: string }>>([]);
 
   const addImages = (raw: string, alt?: string) => {
     const urls = raw
@@ -49,44 +79,146 @@ export default function NewPropertyPage() {
       const next = [...prev];
       for (const url of urls) {
         if (existing.has(url)) continue;
-        next.push({ url, alt: alt?.trim() || undefined });
+        next.push({ url, alt: alt?.trim() || null });
         existing.add(url);
       }
       return next;
     });
   };
 
+  useEffect(() => {
+    if (!session) return;
+    const run = async () => {
+      try {
+        setLoading(true);
+        setError(null);
+        const res = await fetch(`/api/dashboard/properties/${encodeURIComponent(propertyId)}`, {
+          headers: { "x-imosafe-session-id": session.id },
+        });
+        const data = (await res.json()) as
+          | { ok: true; property: PropertyDto }
+          | { ok: false; error?: { message?: string } };
+
+        if (!res.ok || !data.ok) {
+          setError((data.ok ? undefined : data.error?.message) || "Erreur serveur.");
+          return;
+        }
+
+        const p = data.property;
+        setTitle(p.title);
+        setDescription(p.description);
+        setTransactionType(p.transactionType as "RENT" | "SALE");
+        setType(p.type as typeof type);
+        setPrice(String(p.price));
+        setCity(p.city);
+        setNeighborhood(p.neighborhood ?? "");
+        setAddress(p.address ?? "");
+        setBedrooms(p.bedrooms == null ? "" : String(p.bedrooms));
+        setBathrooms(p.bathrooms == null ? "" : String(p.bathrooms));
+        setArea(p.area == null ? "" : String(p.area));
+        setContactWhatsApp(p.contactWhatsApp ?? "");
+        setNotes(p.notes ?? "");
+        setImages(
+          p.propertyImages.length
+            ? p.propertyImages.sort((a, b) => a.sortOrder - b.sortOrder).map((i) => ({ url: i.url, alt: i.alt }))
+            : []
+        );
+        setDocuments(p.documents.map((d) => ({ type: d.type, name: d.fileName ?? d.type, url: d.fileUrl })));
+      } catch {
+        setError("Erreur serveur.");
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    run();
+  }, [propertyId, session]);
+
+  const canManage = useMemo(() => {
+    return session?.role === "OWNER" || session?.role === "AGENCY" || session?.role === "ADMIN";
+  }, [session?.role]);
+
+  const sendAction = async (action: "HIDE" | "REACTIVATE") => {
+    if (!session) return;
+    setSaving(true);
+    setError(null);
+    setDoneMsg(null);
+    try {
+      const res = await fetch(`/api/dashboard/properties/${encodeURIComponent(propertyId)}`, {
+        method: "PUT",
+        headers: {
+          "content-type": "application/json",
+          "x-imosafe-session-id": session.id,
+        },
+        body: JSON.stringify({ action }),
+      });
+      const data = (await res.json()) as { ok: boolean; error?: { message?: string } };
+      if (!res.ok || !data.ok) {
+        setError(data.ok ? "Erreur serveur." : data.error?.message || "Erreur serveur.");
+        return;
+      }
+      window.location.reload();
+    } catch {
+      setError("Erreur serveur.");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  if (!session) {
+    return (
+      <div className="min-h-full">
+        <SiteHeader />
+        <main className="mx-auto w-full max-w-3xl px-4 py-10 sm:px-6">
+          <div className="rounded-3xl border border-amber-600/20 bg-amber-500/10 p-6 text-sm text-amber-950 ring-1 ring-amber-600/20 dark:border-amber-400/20 dark:text-amber-100 dark:ring-amber-400/20">
+            Connecte-toi pour modifier cette annonce.
+          </div>
+        </main>
+        <SiteFooter />
+      </div>
+    );
+  }
+
+  if (!canManage) {
+    return (
+      <div className="min-h-full">
+        <SiteHeader />
+        <main className="mx-auto w-full max-w-3xl px-4 py-10 sm:px-6">
+          <div className="rounded-3xl border border-amber-600/20 bg-amber-500/10 p-6 text-sm text-amber-950 ring-1 ring-amber-600/20 dark:border-amber-400/20 dark:text-amber-100 dark:ring-amber-400/20">
+            Accès réservé aux annonceurs.
+          </div>
+        </main>
+        <SiteFooter />
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-full">
       <SiteHeader />
-
       <main className="mx-auto w-full max-w-3xl px-4 py-10 sm:px-6">
-        <Link href="/dashboard" className="text-sm font-semibold text-emerald-700 hover:underline dark:text-emerald-300">
-          ← Retour dashboard
+        <Link href="/dashboard/properties" className="text-sm font-semibold text-emerald-700 hover:underline dark:text-emerald-300">
+          ← Retour à mes annonces
         </Link>
 
-        <h1 className="mt-3 text-2xl font-extrabold tracking-tight">Publier un bien (MVP)</h1>
-        <p className="mt-2 text-sm text-slate-600 dark:text-white/70">
-          MVP: URLs (photos + documents). Publication réelle en DB + vérification admin.
-        </p>
+        <h1 className="mt-3 text-2xl font-extrabold tracking-tight">Modifier l’annonce</h1>
 
-        <div className="mt-6 rounded-3xl border border-black/10 bg-white p-6 shadow-sm dark:border-white/10 dark:bg-white/5">
-          {done ? (
-            <div className="rounded-2xl border border-emerald-600/20 bg-emerald-500/10 p-4 text-sm text-emerald-950 ring-1 ring-emerald-600/20 dark:border-emerald-400/20 dark:text-emerald-100 dark:ring-emerald-400/20">
-              Annonce envoyée pour vérification ImoSafe.
-            </div>
-          ) : (
+        {error ? <div className="mt-4 text-sm font-semibold text-rose-700 dark:text-rose-300">{error}</div> : null}
+        {doneMsg ? <div className="mt-4 text-sm font-semibold text-emerald-700 dark:text-emerald-300">{doneMsg}</div> : null}
+
+        {loading ? (
+          <div className="mt-6 rounded-3xl border border-black/10 bg-white p-6 text-sm text-slate-700 shadow-sm dark:border-white/10 dark:bg-white/5 dark:text-white/70">
+            Chargement...
+          </div>
+        ) : (
+          <div className="mt-6 rounded-3xl border border-black/10 bg-white p-6 shadow-sm dark:border-white/10 dark:bg-white/5">
             <form
               className="grid gap-3"
               onSubmit={async (e) => {
                 e.preventDefault();
-                if (!session) {
-                  setError("Connecte-toi pour publier.");
-                  return;
-                }
-
                 setSaving(true);
                 setError(null);
+                setDoneMsg(null);
 
                 const parsedPrice = Number(price);
                 const parsedBedrooms = bedrooms ? Number(bedrooms) : undefined;
@@ -94,8 +226,8 @@ export default function NewPropertyPage() {
                 const parsedArea = area ? Number(area) : undefined;
 
                 try {
-                  const res = await fetch("/api/dashboard/properties", {
-                    method: "POST",
+                  const res = await fetch(`/api/dashboard/properties/${encodeURIComponent(propertyId)}`, {
+                    method: "PUT",
                     headers: {
                       "content-type": "application/json",
                       "x-imosafe-session-id": session.id,
@@ -107,29 +239,28 @@ export default function NewPropertyPage() {
                       transactionType,
                       price: Number.isFinite(parsedPrice) ? parsedPrice : 0,
                       city: city.trim(),
-                      neighborhood: neighborhood.trim() || undefined,
-                      address: address.trim() || undefined,
+                      neighborhood: neighborhood.trim() || "",
+                      address: address.trim() || "",
                       bedrooms: Number.isFinite(parsedBedrooms) ? parsedBedrooms : undefined,
                       bathrooms: Number.isFinite(parsedBathrooms) ? parsedBathrooms : undefined,
                       area: Number.isFinite(parsedArea) ? parsedArea : undefined,
-                      images: images.map((i) => ({ url: i.url, alt: i.alt })),
-                      documents: documents.map((d) => ({ type: d.type, name: d.name, url: d.url })),
-                      contactWhatsApp: contactWhatsApp.trim() || undefined,
-                      notes: notes.trim() || undefined,
+                      images: images.map((i) => ({ url: i.url, alt: i.alt ?? undefined })),
+                      documents,
+                      contactWhatsApp: contactWhatsApp.trim() || "",
+                      notes: notes.trim() || "",
                     }),
                   });
 
                   const data = (await res.json()) as
                     | { ok: true; message?: string }
-                    | { ok: false; error?: { message?: string; code?: string } };
+                    | { ok: false; error?: { message?: string } };
 
                   if (!res.ok || !data.ok) {
-                    const msg = data.ok ? "Erreur serveur." : data.error?.message;
-                    setError(msg || "Erreur serveur.");
+                    setError((data.ok ? undefined : data.error?.message) || "Erreur serveur.");
                     return;
                   }
 
-                  setDone(true);
+                  setDoneMsg(data.ok ? (data.message || "Modifications enregistrées.") : "Modifications enregistrées.");
                 } catch {
                   setError("Erreur serveur.");
                 } finally {
@@ -137,7 +268,6 @@ export default function NewPropertyPage() {
                 }
               }}
             >
-              {error ? <div className="text-sm font-semibold text-rose-700 dark:text-rose-300">{error}</div> : null}
               <div>
                 <label className="text-xs font-semibold text-slate-700 dark:text-white/70">Titre</label>
                 <input
@@ -145,16 +275,6 @@ export default function NewPropertyPage() {
                   value={title}
                   onChange={(e) => setTitle(e.target.value)}
                   required
-                />
-              </div>
-
-              <div>
-                <label className="text-xs font-semibold text-slate-700 dark:text-white/70">Adresse approximative</label>
-                <input
-                  className="mt-1 h-11 w-full rounded-2xl border border-black/10 bg-white px-3 text-sm text-slate-900 shadow-sm outline-none focus:ring-2 focus:ring-emerald-500/30 dark:border-white/10 dark:bg-black/20 dark:text-white"
-                  value={address}
-                  onChange={(e) => setAddress(e.target.value)}
-                  placeholder="Ex: Proche de ..."
                 />
               </div>
 
@@ -204,7 +324,6 @@ export default function NewPropertyPage() {
                     className="mt-1 h-11 w-full rounded-2xl border border-black/10 bg-white px-3 text-sm text-slate-900 shadow-sm outline-none focus:ring-2 focus:ring-emerald-500/30 dark:border-white/10 dark:bg-black/20 dark:text-white"
                     value={price}
                     onChange={(e) => setPrice(e.target.value.replace(/[^0-9]/g, ""))}
-                    placeholder="250000"
                     required
                   />
                 </div>
@@ -219,6 +338,24 @@ export default function NewPropertyPage() {
                 </div>
               </div>
 
+              <div>
+                <label className="text-xs font-semibold text-slate-700 dark:text-white/70">Quartier</label>
+                <input
+                  className="mt-1 h-11 w-full rounded-2xl border border-black/10 bg-white px-3 text-sm text-slate-900 shadow-sm outline-none focus:ring-2 focus:ring-emerald-500/30 dark:border-white/10 dark:bg-black/20 dark:text-white"
+                  value={neighborhood}
+                  onChange={(e) => setNeighborhood(e.target.value)}
+                />
+              </div>
+
+              <div>
+                <label className="text-xs font-semibold text-slate-700 dark:text-white/70">Adresse approximative</label>
+                <input
+                  className="mt-1 h-11 w-full rounded-2xl border border-black/10 bg-white px-3 text-sm text-slate-900 shadow-sm outline-none focus:ring-2 focus:ring-emerald-500/30 dark:border-white/10 dark:bg-black/20 dark:text-white"
+                  value={address}
+                  onChange={(e) => setAddress(e.target.value)}
+                />
+              </div>
+
               <div className="grid gap-3 sm:grid-cols-3">
                 <div>
                   <label className="text-xs font-semibold text-slate-700 dark:text-white/70">Chambres</label>
@@ -227,7 +364,6 @@ export default function NewPropertyPage() {
                     className="mt-1 h-11 w-full rounded-2xl border border-black/10 bg-white px-3 text-sm text-slate-900 shadow-sm outline-none focus:ring-2 focus:ring-emerald-500/30 dark:border-white/10 dark:bg-black/20 dark:text-white"
                     value={bedrooms}
                     onChange={(e) => setBedrooms(e.target.value.replace(/[^0-9]/g, ""))}
-                    placeholder="2"
                   />
                 </div>
                 <div>
@@ -237,7 +373,6 @@ export default function NewPropertyPage() {
                     className="mt-1 h-11 w-full rounded-2xl border border-black/10 bg-white px-3 text-sm text-slate-900 shadow-sm outline-none focus:ring-2 focus:ring-emerald-500/30 dark:border-white/10 dark:bg-black/20 dark:text-white"
                     value={bathrooms}
                     onChange={(e) => setBathrooms(e.target.value.replace(/[^0-9]/g, ""))}
-                    placeholder="1"
                   />
                 </div>
                 <div>
@@ -247,19 +382,28 @@ export default function NewPropertyPage() {
                     className="mt-1 h-11 w-full rounded-2xl border border-black/10 bg-white px-3 text-sm text-slate-900 shadow-sm outline-none focus:ring-2 focus:ring-emerald-500/30 dark:border-white/10 dark:bg-black/20 dark:text-white"
                     value={area}
                     onChange={(e) => setArea(e.target.value.replace(/[^0-9]/g, ""))}
-                    placeholder="90"
                   />
                 </div>
               </div>
 
-              <div>
-                <label className="text-xs font-semibold text-slate-700 dark:text-white/70">Quartier</label>
-                <input
-                  className="mt-1 h-11 w-full rounded-2xl border border-black/10 bg-white px-3 text-sm text-slate-900 shadow-sm outline-none focus:ring-2 focus:ring-emerald-500/30 dark:border-white/10 dark:bg-black/20 dark:text-white"
-                  value={neighborhood}
-                  onChange={(e) => setNeighborhood(e.target.value)}
-                  placeholder="Ex: Fidjrossè"
-                />
+              <div className="grid gap-3 sm:grid-cols-2">
+                <div>
+                  <label className="text-xs font-semibold text-slate-700 dark:text-white/70">Contact WhatsApp</label>
+                  <input
+                    className="mt-1 h-11 w-full rounded-2xl border border-black/10 bg-white px-3 text-sm text-slate-900 shadow-sm outline-none focus:ring-2 focus:ring-emerald-500/30 dark:border-white/10 dark:bg-black/20 dark:text-white"
+                    value={contactWhatsApp}
+                    onChange={(e) => setContactWhatsApp(e.target.value)}
+                    placeholder="+229..."
+                  />
+                </div>
+                <div>
+                  <label className="text-xs font-semibold text-slate-700 dark:text-white/70">Notes (privées)</label>
+                  <input
+                    className="mt-1 h-11 w-full rounded-2xl border border-black/10 bg-white px-3 text-sm text-slate-900 shadow-sm outline-none focus:ring-2 focus:ring-emerald-500/30 dark:border-white/10 dark:bg-black/20 dark:text-white"
+                    value={notes}
+                    onChange={(e) => setNotes(e.target.value)}
+                  />
+                </div>
               </div>
 
               <div>
@@ -301,19 +445,10 @@ export default function NewPropertyPage() {
                   </button>
                 </div>
 
-                <div className="mt-3 text-xs text-slate-600 dark:text-white/60">
-                  La première image est l’image principale.
-                </div>
-
                 {images.length ? (
                   <div className="mt-3 grid gap-3">
                     <div className="overflow-hidden rounded-3xl border border-black/10 bg-slate-100 shadow-sm dark:border-white/10 dark:bg-white/10">
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img
-                        src={images[0]?.url}
-                        alt={images[0]?.alt ?? title}
-                        className="h-[220px] w-full object-cover sm:h-[320px]"
-                      />
+                      <img src={images[0]?.url} alt={images[0]?.alt ?? title} className="h-[220px] w-full object-cover sm:h-[320px]" />
                     </div>
 
                     <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
@@ -332,7 +467,6 @@ export default function NewPropertyPage() {
                             }}
                             aria-label={idx === 0 ? "Image principale" : "Définir comme principale"}
                           >
-                            {/* eslint-disable-next-line @next/next/no-img-element */}
                             <img src={img.url} alt={img.alt ?? title} className="h-20 w-full object-cover" loading="lazy" />
                           </button>
 
@@ -341,7 +475,7 @@ export default function NewPropertyPage() {
                             value={img.alt ?? ""}
                             onChange={(e) => {
                               const value = e.target.value;
-                              setImages((prev) => prev.map((p) => (p.url === img.url ? { ...p, alt: value.trim() || undefined } : p)));
+                              setImages((prev) => prev.map((p) => (p.url === img.url ? { ...p, alt: value.trim() || null } : p)));
                             }}
                             placeholder="Alt (optionnel)"
                           />
@@ -357,11 +491,7 @@ export default function NewPropertyPage() {
                       ))}
                     </div>
                   </div>
-                ) : (
-                  <div className="mt-3 rounded-2xl border border-dashed border-black/15 bg-slate-50 p-4 text-sm text-slate-600 dark:border-white/15 dark:bg-black/20 dark:text-white/60">
-                    Aucune image. Ajoute au moins une URL pour activer la galerie.
-                  </div>
-                )}
+                ) : null}
               </div>
 
               <div className="mt-2">
@@ -401,10 +531,7 @@ export default function NewPropertyPage() {
                       const name = docName.trim();
                       const url = docUrl.trim();
                       if (!name || !url) return;
-                      setDocuments((prev) => [
-                        ...prev,
-                        { id: `doc_${Math.random().toString(16).slice(2)}`, type: docType, name, url, status: "PENDING" },
-                      ]);
+                      setDocuments((prev) => [...prev, { type: docType, name, url }]);
                       setDocName("");
                       setDocUrl("");
                     }}
@@ -415,75 +542,59 @@ export default function NewPropertyPage() {
 
                 {documents.length ? (
                   <div className="mt-3 grid gap-2">
-                    {documents.map((d) => (
+                    {documents.map((d, idx) => (
                       <div
-                        key={d.id}
+                        key={`${d.type}-${d.url}-${idx}`}
                         className="flex flex-wrap items-center justify-between gap-2 rounded-2xl border border-black/10 bg-white p-3 text-xs dark:border-white/10 dark:bg-white/5"
                       >
                         <div className="min-w-0">
                           <div className="font-semibold text-slate-900 dark:text-white">{d.name}</div>
-                          <div className="mt-0.5 truncate text-slate-600 dark:text-white/60">
-                            {d.type} • {d.status}
-                          </div>
+                          <div className="mt-0.5 truncate text-slate-600 dark:text-white/60">{d.type}</div>
                         </div>
                         <button
                           type="button"
                           className="inline-flex h-9 items-center justify-center rounded-xl bg-rose-600 px-3 text-xs font-semibold text-white shadow-sm transition hover:opacity-95"
-                          onClick={() => setDocuments((prev) => prev.filter((x) => x.id !== d.id))}
+                          onClick={() => setDocuments((prev) => prev.filter((_, i) => i !== idx))}
                         >
                           Supprimer
                         </button>
                       </div>
                     ))}
                   </div>
-                ) : (
-                  <div className="mt-3 rounded-2xl border border-dashed border-black/15 bg-slate-50 p-4 text-sm text-slate-600 dark:border-white/15 dark:bg-black/20 dark:text-white/60">
-                    Aucun document.
-                  </div>
-                )}
-
-                <div className="mt-2 text-xs text-slate-600 dark:text-white/60">
-                  Sécurité: les URLs de documents ne sont pas affichées publiquement.
-                </div>
+                ) : null}
               </div>
 
-              <button
-                type="submit"
-                className="inline-flex h-11 items-center justify-center rounded-2xl bg-emerald-600 px-4 text-sm font-semibold text-white shadow-sm transition hover:opacity-95 disabled:opacity-60"
-                disabled={saving}
-              >
-                {saving ? "Envoi..." : "Publier"}
-              </button>
+              <div className="mt-4 flex flex-wrap gap-2">
+                <button
+                  type="submit"
+                  className="inline-flex h-11 items-center justify-center rounded-2xl bg-emerald-600 px-4 text-sm font-semibold text-white shadow-sm transition hover:opacity-95 disabled:opacity-60"
+                  disabled={saving}
+                >
+                  {saving ? "Enregistrement..." : "Enregistrer"}
+                </button>
 
-              <div className="grid gap-3 sm:grid-cols-2">
-                <div>
-                  <label className="text-xs font-semibold text-slate-700 dark:text-white/70">Contact WhatsApp</label>
-                  <input
-                    className="mt-1 h-11 w-full rounded-2xl border border-black/10 bg-white px-3 text-sm text-slate-900 shadow-sm outline-none focus:ring-2 focus:ring-emerald-500/30 dark:border-white/10 dark:bg-black/20 dark:text-white"
-                    value={contactWhatsApp}
-                    onChange={(e) => setContactWhatsApp(e.target.value)}
-                    placeholder="+229..."
-                  />
-                </div>
-                <div>
-                  <label className="text-xs font-semibold text-slate-700 dark:text-white/70">Notes (privées)</label>
-                  <input
-                    className="mt-1 h-11 w-full rounded-2xl border border-black/10 bg-white px-3 text-sm text-slate-900 shadow-sm outline-none focus:ring-2 focus:ring-emerald-500/30 dark:border-white/10 dark:bg-black/20 dark:text-white"
-                    value={notes}
-                    onChange={(e) => setNotes(e.target.value)}
-                    placeholder="Infos internes / consignes..."
-                  />
-                </div>
-              </div>
+                <button
+                  type="button"
+                  className="inline-flex h-11 items-center justify-center rounded-2xl bg-rose-600 px-4 text-sm font-semibold text-white shadow-sm transition hover:opacity-95 disabled:opacity-60"
+                  disabled={saving}
+                  onClick={() => sendAction("HIDE")}
+                >
+                  Masquer
+                </button>
 
-              <div className="text-xs text-slate-500 dark:text-white/50">
-                Conseil: ImoSafe affichera “En vérification” jusqu’à validation.
+                <button
+                  type="button"
+                  className="inline-flex h-11 items-center justify-center rounded-2xl bg-[#0B2A4A] px-4 text-sm font-semibold text-white shadow-sm transition hover:opacity-95 disabled:opacity-60"
+                  disabled={saving}
+                  onClick={() => sendAction("REACTIVATE")}
+                >
+                  Réactiver
+                </button>
               </div>
             </form>
-          )}
-        </div>
+          </div>
+        )}
       </main>
-
       <SiteFooter />
     </div>
   );

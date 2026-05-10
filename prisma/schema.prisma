@@ -7,6 +7,72 @@ generator client {
   provider = "prisma-client-js"
 }
 
+model Stay {
+  id                 String                 @id @default(cuid())
+  title              String
+  description        String
+  city               String
+  neighborhood       String
+  addressApprox      String?
+  pricePerNight      Int
+  pricePerWeek       Int?
+  pricePerMonth      Int?
+  cleaningFee        Int?
+  deposit            Int?
+  maxGuests          Int
+  bedrooms           Int
+  bathrooms          Int
+  amenities          String[]
+  availabilityStatus StayAvailabilityStatus @default(AVAILABLE)
+  verificationStatus VerificationStatus     @default(NOT_VERIFIED)
+  trustScore         Int?
+  hostId             String
+  host               User                   @relation(fields: [hostId], references: [id], onDelete: Cascade)
+  isHidden           Boolean                @default(false)
+  checkInTime        String?
+  checkOutTime       String?
+  rules              String[]
+  createdAt          DateTime               @default(now())
+  updatedAt          DateTime               @updatedAt
+
+  stayImages      StayImage[]
+  documents       Document[]
+  bookingRequests BookingRequest[]
+
+  @@index([city])
+  @@index([verificationStatus])
+  @@index([availabilityStatus])
+  @@index([hostId])
+}
+
+model PropertyImage {
+  id         String   @id @default(cuid())
+  propertyId String
+  url        String
+  alt        String?
+  sortOrder  Int      @default(0)
+  createdAt  DateTime @default(now())
+
+  property Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+
+  @@index([propertyId])
+  @@index([sortOrder])
+}
+
+model StayImage {
+  id        String   @id @default(cuid())
+  stayId    String
+  url       String
+  alt       String?
+  sortOrder Int      @default(0)
+  createdAt DateTime @default(now())
+
+  stay Stay @relation(fields: [stayId], references: [id], onDelete: Cascade)
+
+  @@index([stayId])
+  @@index([sortOrder])
+}
+
 datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
@@ -42,6 +108,33 @@ enum PropertyStatus {
   HIDDEN
 }
 
+enum StayAvailabilityStatus {
+  AVAILABLE
+  LIMITED
+  UNAVAILABLE
+}
+
+enum BookingRequestStatus {
+  PENDING
+  CONFIRMED
+  DECLINED
+}
+
+enum ManualPaymentOffer {
+  AGENCE_PRO
+  HOST_STAYS_PRO
+  PREMIUM_USER
+  VERIFICATION
+  BOOST_LISTING
+}
+
+enum ManualPaymentStatus {
+  PENDING
+  IN_REVIEW
+  ACTIVATED
+  REJECTED
+}
+
 enum VerificationStatus {
   NOT_VERIFIED
   PENDING
@@ -67,7 +160,11 @@ enum ScamReportStatus {
 enum DocumentType {
   ID
   TITLE_DEED
+  SALE_CONVENTION
   LEASE
+  RECEIPT
+  RENTAL_AUTH
+  OWNER_ID
   AGENCY_LICENSE
   OTHER
 }
@@ -83,11 +180,14 @@ model User {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  propertiesOwned Property[]     @relation("PropertyOwner")
+  propertiesOwned Property[]       @relation("PropertyOwner")
   agencies        Agency[]
   favorites       Favorite[]
   visitRequests   VisitRequest[]
   scamReports     ScamReport[]
+  stays           Stay[]
+  documents       Document[]
+  bookingRequests BookingRequest[]
 }
 
 model Agency {
@@ -120,9 +220,13 @@ model Property {
   bedrooms           Int?
   bathrooms          Int?
   area               Int?
+  contactWhatsApp    String?
+  notes              String?
   images             String[]
   status             PropertyStatus     @default(AVAILABLE)
   verificationStatus VerificationStatus @default(NOT_VERIFIED)
+  trustScore         Int?
+  isHidden           Boolean            @default(false)
 
   ownerId String?
   owner   User?   @relation("PropertyOwner", fields: [ownerId], references: [id], onDelete: SetNull)
@@ -133,10 +237,11 @@ model Property {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  favorites     Favorite[]
-  visitRequests VisitRequest[]
-  scamReports   ScamReport[]
-  documents     Document[]
+  favorites      Favorite[]
+  visitRequests  VisitRequest[]
+  scamReports    ScamReport[]
+  documents      Document[]
+  propertyImages PropertyImage[]
 
   @@index([city])
   @@index([type])
@@ -196,14 +301,58 @@ model ScamReport {
 
 model Document {
   id                 String             @id @default(cuid())
-  propertyId         String
+  propertyId         String?
+  stayId             String?
   type               DocumentType
   fileUrl            String
+  fileName           String?
   verificationStatus VerificationStatus @default(PENDING)
+  uploadedById       String?
   createdAt          DateTime           @default(now())
 
-  property Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  property   Property? @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  stay       Stay?     @relation(fields: [stayId], references: [id], onDelete: Cascade)
+  uploadedBy User?     @relation(fields: [uploadedById], references: [id], onDelete: SetNull)
 
   @@index([propertyId])
+  @@index([stayId])
+  @@index([uploadedById])
   @@index([verificationStatus])
+}
+
+model BookingRequest {
+  id           String               @id @default(cuid())
+  userId       String?
+  stayId       String
+  checkInDate  DateTime
+  checkOutDate DateTime
+  guests       Int
+  name         String
+  whatsapp     String
+  message      String?
+  status       BookingRequestStatus @default(PENDING)
+  createdAt    DateTime             @default(now())
+
+  user User? @relation(fields: [userId], references: [id], onDelete: SetNull)
+  stay Stay  @relation(fields: [stayId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([stayId])
+  @@index([status])
+  @@index([createdAt])
+}
+
+model ManualPaymentRequest {
+  id        String              @id @default(cuid())
+  name      String
+  phone     String
+  email     String?
+  offer     ManualPaymentOffer
+  message   String?
+  status    ManualPaymentStatus @default(PENDING)
+  createdAt DateTime            @default(now())
+
+  @@index([offer])
+  @@index([status])
+  @@index([createdAt])
 }

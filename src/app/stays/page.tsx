@@ -1,26 +1,54 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import { SiteFooter } from "@/components/site/SiteFooter";
 import { SiteHeader } from "@/components/site/SiteHeader";
 import { StayCard } from "@/components/stays/StayCard";
 import { StatusBadge } from "@/components/ui/StatusBadge";
-import { DEMO_STAYS } from "@/lib/demoData";
+import type { Stay } from "@/lib/demoData";
 
 export default function StaysPage() {
+  const [items, setItems] = useState<Stay[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
   const [neighborhood, setNeighborhood] = useState("");
   const [maxNightPrice, setMaxNightPrice] = useState<number | "">("");
   const [guests, setGuests] = useState<number | "">("");
-  const [verifiedOnly, setVerifiedOnly] = useState(false);
+  const [verifiedOnly, setVerifiedOnly] = useState(true);
   const [hostVerifiedOnly, setHostVerifiedOnly] = useState(false);
 
-  const neighborhoods = useMemo(() => {
-    return Array.from(new Set(DEMO_STAYS.map((s) => s.neighborhood).filter(Boolean))).sort();
+  useEffect(() => {
+    const run = async () => {
+      try {
+        setLoading(true);
+        setError(null);
+        const res = await fetch("/api/public/stays");
+        const data = (await res.json()) as | { ok: true; stays: Stay[] } | { ok: false; error?: { message?: string } };
+        if (!res.ok || !data.ok) {
+          setError((data.ok ? undefined : data.error?.message) || "Erreur serveur.");
+          setItems([]);
+          return;
+        }
+        setItems(data.stays);
+      } catch {
+        setError("Erreur serveur.");
+        setItems([]);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    run();
   }, []);
 
+  const neighborhoods = useMemo(() => {
+    return Array.from(new Set(items.map((s) => s.neighborhood).filter(Boolean))).sort();
+  }, [items]);
+
   const stays = useMemo(() => {
-    return DEMO_STAYS.filter((s) => {
+    return items.filter((s) => {
       if (neighborhood && s.neighborhood !== neighborhood) return false;
       if (typeof maxNightPrice === "number" && s.pricePerNight > maxNightPrice) return false;
       if (typeof guests === "number" && s.maxGuests < guests) return false;
@@ -28,7 +56,7 @@ export default function StaysPage() {
       if (hostVerifiedOnly && !s.hostVerified) return false;
       return true;
     });
-  }, [guests, hostVerifiedOnly, maxNightPrice, neighborhood, verifiedOnly]);
+  }, [guests, hostVerifiedOnly, items, maxNightPrice, neighborhood, verifiedOnly]);
 
   return (
     <div className="min-h-full">
@@ -109,9 +137,15 @@ export default function StaysPage() {
         </div>
 
         <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {stays.map((stay) => (
-            <StayCard key={stay.id} stay={stay} />
-          ))}
+          {error ? <div className="text-sm font-semibold text-rose-700 dark:text-rose-300">{error}</div> : null}
+
+          {loading ? (
+            <div className="rounded-3xl border border-black/10 bg-white p-6 text-sm text-slate-700 shadow-sm dark:border-white/10 dark:bg-white/5 dark:text-white/70">
+              Chargement...
+            </div>
+          ) : (
+            stays.map((stay) => <StayCard key={stay.id} stay={stay} />)
+          )}
         </div>
 
         {!stays.length ? (

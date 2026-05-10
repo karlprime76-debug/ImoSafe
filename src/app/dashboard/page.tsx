@@ -147,6 +147,29 @@ export default function DashboardPage() {
           </div>
         ) : null}
 
+        {session?.role === "HOST" ? (
+          <div className="mt-8 rounded-3xl border border-emerald-600/20 bg-emerald-500/10 p-6 ring-1 ring-emerald-600/20 dark:border-emerald-400/20 dark:ring-emerald-400/20">
+            <div className="text-sm font-extrabold text-emerald-950 dark:text-emerald-100">Espace hôte</div>
+            <div className="mt-1 text-sm text-emerald-950/80 dark:text-emerald-100/80">
+              Publie tes séjours, gère les demandes de réservation et mets à jour tes annonces.
+            </div>
+            <div className="mt-4 flex flex-col gap-2 sm:flex-row">
+              <Link
+                href="/dashboard/stays"
+                className="inline-flex h-11 items-center justify-center rounded-2xl bg-emerald-600 px-4 text-sm font-semibold text-white shadow-sm transition hover:opacity-95"
+              >
+                Mes séjours
+              </Link>
+              <Link
+                href="/dashboard/stays/new"
+                className="inline-flex h-11 items-center justify-center rounded-2xl bg-[#0B2A4A] px-4 text-sm font-semibold text-white shadow-sm transition hover:opacity-95"
+              >
+                Ajouter un séjour
+              </Link>
+            </div>
+          </div>
+        ) : null}
+
         <section className="mt-10">
           <div className="flex items-end justify-between gap-4">
             <div>
