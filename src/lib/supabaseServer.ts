@@ -42,11 +42,24 @@ function serializeCookie(c: CookieToSet) {
 }
 
 export function createSupabaseRouteClient(request: Request) {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  const urlRaw = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const anonKeyRaw = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  const url = typeof urlRaw === "string" ? urlRaw.trim() : "";
+  const anonKey = typeof anonKeyRaw === "string" ? anonKeyRaw.trim() : "";
 
   if (!url || !anonKey) {
     throw new Error("Supabase public config missing. Set NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY.");
+  }
+
+  let parsedUrl: URL | null = null;
+  try {
+    parsedUrl = new URL(url);
+  } catch {
+    parsedUrl = null;
+  }
+
+  if (!parsedUrl || (parsedUrl.protocol !== "https:" && parsedUrl.protocol !== "http:")) {
+    throw new Error("Supabase public config invalid. NEXT_PUBLIC_SUPABASE_URL must be a valid http(s) URL.");
   }
 
   const cookieHeader = request.headers.get("cookie");

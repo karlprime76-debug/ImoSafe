@@ -28,6 +28,37 @@ function mapAccountTypeToRole(accountType: "USER" | "OWNER" | "AGENCY" | "HOST")
   return accountType;
 }
 
+function getSupabaseConfigStatus() {
+  const urlRaw = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const anonKeyRaw = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  const url = typeof urlRaw === "string" ? urlRaw.trim() : "";
+  const anonKey = typeof anonKeyRaw === "string" ? anonKeyRaw.trim() : "";
+
+  if (!url || !anonKey) return { ok: false as const, code: "SUPABASE_CONFIG_MISSING" as const };
+
+  try {
+    const parsed = new URL(url);
+    if (parsed.protocol !== "https:" && parsed.protocol !== "http:") {
+      return { ok: false as const, code: "SUPABASE_URL_INVALID" as const };
+    }
+  } catch {
+    return { ok: false as const, code: "SUPABASE_URL_INVALID" as const };
+  }
+
+  return { ok: true as const };
+}
+
+function isAuthFetchFailed(error: unknown) {
+  const name = error instanceof Error ? error.name : "";
+  const message = error instanceof Error ? error.message : String(error);
+  const msg = message.toLowerCase();
+  if (name === "AuthRetryableFetchError") return true;
+  if (msg.includes("fetch failed")) return true;
+  if (msg.includes("timeout")) return true;
+  if (msg.includes("econnreset") || msg.includes("enotfound") || msg.includes("etimedout")) return true;
+  return false;
+}
+
 export async function POST(req: Request) {
   try {
     console.info("[auth.register] request received");
@@ -68,21 +99,56 @@ export async function POST(req: Request) {
     console.info("[auth.register] accountType", { accountType });
     const role = mapAccountTypeToRole(accountType) as UserRoleValue;
 
+    const cfg = getSupabaseConfigStatus();
+    if (!cfg.ok) {
+      return NextResponse.json(
+        {
+          ok: false,
+          error: {
+            code: cfg.code,
+            message: cfg.code === "SUPABASE_CONFIG_MISSING" ? "Configuration Supabase manquante." : "URL Supabase invalide.",
+          },
+        },
+        { status: 500, headers: { "cache-control": "no-store" } }
+      );
+    }
+
     const { supabase, getSetCookieHeaders } = createSupabaseRouteClient(req);
 
-    const { data, error } = await supabase.auth.signUp({
-      email: normalizedEmail,
-      password,
-      options: {
-        data: {
-          name: name.trim(),
-          phone: phone.trim(),
-          accountType,
-        },
-      },
-    });
+    let data: { user: { id: string } } | null = null;
+    let error: { name?: string; message?: string } | null = null;
 
-    if (error || !data.user?.id) {
+    try {
+      const result = await supabase.auth.signUp({
+        email: normalizedEmail,
+        password,
+        options: {
+          data: {
+            name: name.trim(),
+            phone: phone.trim(),
+            accountType,
+          },
+        },
+      });
+      data = result.data?.user?.id ? { user: { id: result.data.user.id } } : null;
+      error = result.error ? { name: result.error.name, message: result.error.message } : null;
+    } catch (e) {
+      if (isAuthFetchFailed(e)) {
+        return NextResponse.json(
+          {
+            ok: false,
+            error: {
+              code: "AUTH_FETCH_FAILED",
+              message: "Impossible de joindre Supabase Auth depuis le serveur.",
+            },
+          },
+          { status: 503, headers: { "cache-control": "no-store" } }
+        );
+      }
+      throw e;
+    }
+
+    if (error || !data?.user?.id) {
       console.info("[auth.register] supabase signUp success", { success: false });
       console.error("[auth/register] supabase signUp failed", {
         name: error?.name,
@@ -105,6 +171,8 @@ export async function POST(req: Request) {
 
     console.info("[auth.register] supabase signUp success", { success: true });
 
+    const userId = data.user.id;
+
     let user:
       | {
           id: string;
@@ -118,9 +186,9 @@ export async function POST(req: Request) {
 
     try {
       user = await prisma.user.upsert({
-        where: { id: data.user.id },
+        where: { id: userId },
         create: {
-          id: data.user.id,
+          id: userId,
           name: name.trim(),
           email: normalizedEmail,
           phone: phone.trim(),
