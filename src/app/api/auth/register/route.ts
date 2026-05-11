@@ -28,8 +28,11 @@ function mapAccountTypeToRole(accountType: "USER" | "OWNER" | "AGENCY" | "HOST")
 
 export async function POST(req: Request) {
   try {
+    console.info("[auth.register] request received");
     const json = await req.json();
     const parsed = RegisterSchema.safeParse(json);
+
+    console.info("[auth.register] validation ok", { ok: parsed.success });
 
     if (!parsed.success) {
       return NextResponse.json(
@@ -48,9 +51,12 @@ export async function POST(req: Request) {
     const { name, email, phone, accountType, password } = parsed.data;
 
     const normalizedEmail = email.trim().toLowerCase();
+    console.info("[auth.register] normalized email", { email: normalizedEmail });
+    console.info("[auth.register] accountType", { accountType });
     const role = mapAccountTypeToRole(accountType) as UserRoleValue;
 
     const existing = await prisma.user.findUnique({ where: { email: normalizedEmail }, select: { id: true } });
+    console.info("[auth.register] email exists", { exists: Boolean(existing) });
     if (existing) {
       return NextResponse.json(
         { ok: false, error: { code: "EMAIL_IN_USE", message: "Email déjà utilisé." } },
@@ -72,29 +78,59 @@ export async function POST(req: Request) {
     });
 
     if (error || !data.user?.id) {
+      console.info("[auth.register] supabase signUp success", { success: false });
       return NextResponse.json(
         { ok: false, error: { code: "AUTH_SIGNUP_FAILED", message: "Inscription impossible." } },
         { status: 400, headers: { "cache-control": "no-store" } }
       );
     }
 
-    const user = await prisma.user.create({
-      data: {
-        id: data.user.id,
-        name: name.trim(),
-        email: normalizedEmail,
-        phone: phone.trim(),
-        role,
-        passwordHash: "SUPABASE_AUTH",
-      },
-      select: { id: true, name: true, email: true, phone: true, role: true, createdAt: true },
-    });
+    console.info("[auth.register] supabase signUp success", { success: true });
+
+    let user:
+      | {
+          id: string;
+          name: string;
+          email: string;
+          phone: string | null;
+          role: UserRoleValue;
+          createdAt: Date;
+        }
+      | null = null;
+
+    try {
+      user = await prisma.user.create({
+        data: {
+          id: data.user.id,
+          name: name.trim(),
+          email: normalizedEmail,
+          phone: phone.trim(),
+          role,
+          passwordHash: "SUPABASE_AUTH",
+        },
+        select: { id: true, name: true, email: true, phone: true, role: true, createdAt: true },
+      });
+      console.info("[auth.register] create user success", { success: true });
+    } catch {
+      console.info("[auth.register] create user success", { success: false });
+      return NextResponse.json(
+        {
+          ok: false,
+          error: {
+            code: "USER_CREATE_FAILED",
+            message: "Inscription impossible (création du profil).",
+          },
+        },
+        { status: 500, headers: { "cache-control": "no-store" } }
+      );
+    }
 
     const headers = new Headers({ "cache-control": "no-store" });
     for (const c of getSetCookieHeaders()) headers.append("set-cookie", c);
 
     return NextResponse.json({ ok: true, user }, { headers });
   } catch {
+    console.info("[auth.register] server error");
     return NextResponse.json(
       { ok: false, error: { code: "SERVER_ERROR", message: "Erreur serveur." } },
       { status: 500 }

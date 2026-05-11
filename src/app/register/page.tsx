@@ -28,13 +28,14 @@ export default function RegisterPage() {
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const [errorCode, setErrorCode] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
   return (
     <div className="min-h-full">
       <SiteHeader />
 
-      <main className="mx-auto w-full max-w-md px-4 py-10 sm:px-6">
+      <main className="mx-auto w-full max-w-md px-4 py-10 pb-24 sm:px-6">
         <h1 className="text-2xl font-extrabold tracking-tight">Créer un compte</h1>
         <p className="mt-2 text-sm text-slate-600 dark:text-white/70">MVP: inscription mock (pas de DB).</p>
 
@@ -43,6 +44,7 @@ export default function RegisterPage() {
           onSubmit={async (e) => {
             e.preventDefault();
             setError(null);
+            setErrorCode(null);
 
             const normalized = email.trim().toLowerCase();
             if (!name.trim()) {
@@ -81,16 +83,22 @@ export default function RegisterPage() {
                 }),
               });
 
-              const data = (await res.json()) as RegisterSuccess | RegisterError;
+              let data: RegisterSuccess | RegisterError | null = null;
+              try {
+                data = (await res.json()) as RegisterSuccess | RegisterError;
+              } catch {
+                data = null;
+              }
 
-              if (!res.ok || !data.ok) {
-                const code = data.ok ? undefined : data.error?.code;
+              if (!res.ok || !data || !data.ok) {
+                const code = data && !data.ok ? data.error?.code : undefined;
+                setErrorCode(code ?? null);
                 if (code === "EMAIL_IN_USE") {
                   setError("Email déjà utilisé.");
                 } else if (code === "INVALID_PAYLOAD") {
                   setError("Informations invalides.");
                 } else {
-                  setError((data.ok ? undefined : data.error?.message) || "Erreur serveur.");
+                  setError((data && !data.ok ? data.error?.message : undefined) || "Erreur serveur.");
                 }
                 return;
               }
@@ -98,6 +106,7 @@ export default function RegisterPage() {
               void data.user;
               router.push("/dashboard");
             } catch {
+              setErrorCode("SERVER_ERROR");
               setError("Erreur serveur.");
             } finally {
               setLoading(false);
@@ -175,7 +184,12 @@ export default function RegisterPage() {
             />
           </div>
 
-          {error ? <div className="text-sm font-semibold text-rose-700 dark:text-rose-300">{error}</div> : null}
+          {error ? (
+            <div className="text-sm font-semibold text-rose-700 dark:text-rose-300">
+              {errorCode ? <span className="mr-2 inline-flex rounded-full bg-rose-500/10 px-2 py-0.5 text-[11px] font-extrabold">{errorCode}</span> : null}
+              {error}
+            </div>
+          ) : null}
 
           <button
             type="submit"
