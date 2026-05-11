@@ -10,8 +10,16 @@ function looksLikeSupabaseUrl(url: string) {
   if (!parsed) return { valid: false, host: null as string | null };
   const protocolOk = parsed.protocol === "https:" || parsed.protocol === "http:";
   const host = parsed.host || null;
-  const hostLooksSupabase = typeof host === "string" ? host.includes("supabase") : false;
-  return { valid: protocolOk && Boolean(host), host, hostLooksSupabase };
+  const hasSupabaseCo = typeof host === "string" ? host.includes(".supabase.co") : false;
+  const sanitizedHost =
+    typeof host === "string" && host.includes(".supabase.co")
+      ? host.slice(0, host.indexOf(".supabase.co") + ".supabase.co".length)
+      : host;
+  return {
+    valid: protocolOk && Boolean(host) && hasSupabaseCo,
+    host: sanitizedHost,
+    hostLooksSupabase: hasSupabaseCo,
+  };
 }
 
 async function fetchWithTimeout(url: string, timeoutMs: number) {

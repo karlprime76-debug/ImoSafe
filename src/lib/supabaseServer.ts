@@ -62,6 +62,10 @@ export function createSupabaseRouteClient(request: Request) {
     throw new Error("Supabase public config invalid. NEXT_PUBLIC_SUPABASE_URL must be a valid http(s) URL.");
   }
 
+  if (!parsedUrl.host.includes(".supabase.co")) {
+    throw new Error("Supabase public config invalid. NEXT_PUBLIC_SUPABASE_URL must be a *.supabase.co URL.");
+  }
+
   const cookieHeader = request.headers.get("cookie");
   const existing = parseCookieHeader(cookieHeader);
   const existingMap = new Map(existing.map((c) => [c.name, c.value] as const));
