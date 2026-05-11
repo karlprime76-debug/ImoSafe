@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { createClient } from "@supabase/supabase-js";
 
 function looksLikeSupabaseUrl(url: string) {
   let parsed: URL | null = null;
@@ -60,6 +61,7 @@ export async function GET() {
   let authEndpointStatus: number | null = null;
   let message = "";
   let errorName: string | null = null;
+  let supabaseClientCreatable = false;
 
   if (!supabaseUrlConfigured || !supabaseAnonKeyConfigured) {
     message = "Supabase config missing.";
@@ -68,6 +70,13 @@ export async function GET() {
   } else if (!healthUrl) {
     message = "Health URL unavailable.";
   } else {
+    try {
+      createClient(url, anonKey);
+      supabaseClientCreatable = true;
+    } catch {
+      supabaseClientCreatable = false;
+    }
+
     const res = await fetchWithTimeout(healthUrl, 5000);
     if (!res.ok) {
       const e = res.error as unknown;
@@ -75,8 +84,14 @@ export async function GET() {
       message = e instanceof Error ? e.message : "fetch failed";
     } else {
       authEndpointStatus = res.res.status;
-      authEndpointReachable = res.res.ok;
-      message = res.res.ok ? "Supabase Auth reachable." : "Supabase Auth returned non-OK.";
+      authEndpointReachable = true;
+      if (res.res.status === 401) {
+        message = "Supabase Auth endpoint reachable; status 401 indicates it requires auth or headers.";
+      } else if (res.res.ok) {
+        message = "Supabase Auth reachable.";
+      } else {
+        message = "Supabase Auth endpoint reachable but returned non-OK.";
+      }
     }
   }
 
@@ -87,6 +102,7 @@ export async function GET() {
       supabaseAnonKeyConfigured,
       supabaseUrlLooksValid: Boolean(urlCheck.valid),
       supabaseHost: urlCheck.host,
+      supabaseClientCreatable,
       authEndpointReachable,
       authEndpointStatus,
       errorName,
