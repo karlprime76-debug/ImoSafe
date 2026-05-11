@@ -67,12 +67,14 @@ export default function LoginPage() {
 
               if (!res.ok || !data || !data.ok) {
                 const code = data && !data.ok ? data.error?.code : undefined;
-                if (code === "ACCOUNT_NOT_FOUND") {
-                  setError("Aucun compte trouvé avec cet email.");
-                } else if (code === "INVALID_PASSWORD") {
-                  setError("Mot de passe incorrect.");
-                } else if (code === "INVALID_PAYLOAD") {
+                if (code === "INVALID_PAYLOAD") {
                   setError("Informations invalides.");
+                } else if (code === "EMAIL_NOT_CONFIRMED") {
+                  setError("Email non confirmé. Vérifie ta boîte mail ou contacte ImoSafe.");
+                } else if (code === "AUTH_LOGIN_FAILED") {
+                  setError("Identifiants invalides.");
+                } else if (code === "DB_UNAVAILABLE") {
+                  setError("Service indisponible. Réessayez.");
                 } else if (code === "SERVER_ERROR") {
                   setError("Erreur serveur. Réessayez ou contactez ImoSafe.");
                 } else {

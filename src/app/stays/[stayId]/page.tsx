@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { headers } from "next/headers";
 
 import { SiteFooter } from "@/components/site/SiteFooter";
 import { SiteHeader } from "@/components/site/SiteHeader";
@@ -8,17 +9,19 @@ import { StayGallery } from "@/components/stays/StayGallery";
 import { PriceTag } from "@/components/ui/PriceTag";
 import { StatusBadge } from "@/components/ui/StatusBadge";
 import { TrustScoreBadge } from "@/components/ui/TrustScoreBadge";
-import type { Stay } from "@/lib/demoData";
+import { DEMO_STAYS, type Stay } from "@/lib/demoData";
 
 export default async function StayDetailPage({ params }: { params: Promise<{ stayId: string }> }) {
   const { stayId: rawStayId } = await params;
   const stayId = decodeURIComponent(rawStayId).trim();
 
-  const res = await fetch(`${process.env.NEXT_PUBLIC_SITE_URL ?? ""}/api/public/stays/${encodeURIComponent(stayId)}`, {
-    cache: "no-store",
-  });
+  const h = await headers();
+  const host = h.get("host");
+  const proto = h.get("x-forwarded-proto") ?? "http";
+  const baseUrl = host ? `${proto}://${host}` : "";
+  const apiUrl = `${baseUrl}/api/public/stays/${encodeURIComponent(stayId)}`;
 
-  const data = (await res.json()) as
+  type ApiResponse =
     | {
         ok: true;
         stay: {
@@ -50,9 +53,58 @@ export default async function StayDetailPage({ params }: { params: Promise<{ sta
           documentsSummary: { providedCount: number; pendingCount: number; verifiedCount: number };
         };
       }
-    | { ok: false; error?: { message?: string } };
+    | { ok: false; error?: { message?: string } }
+    | null;
 
-  if (!res.ok || !data.ok) return notFound();
+  let res: Response | null = null;
+  let data: ApiResponse = null;
+
+  try {
+    res = await fetch(apiUrl, { cache: "no-store" });
+    const contentType = res.headers.get("content-type") ?? "";
+    if (contentType.includes("application/json")) {
+      data = (await res.json()) as ApiResponse;
+    }
+  } catch {
+    // handled below
+  }
+
+  if (!res || !res.ok || !data || !data.ok) {
+    const demo = DEMO_STAYS.find((s) => s.id === stayId);
+    if (!demo) return notFound();
+
+    data = {
+      ok: true,
+      stay: {
+        id: demo.id,
+        title: demo.title,
+        description: demo.description,
+        city: demo.city,
+        neighborhood: demo.neighborhood,
+        addressApprox: demo.addressApprox,
+        pricePerNight: demo.pricePerNight,
+        pricePerWeek: demo.pricePerWeek,
+        pricePerMonth: demo.pricePerMonth,
+        cleaningFee: demo.cleaningFee,
+        deposit: demo.deposit,
+        maxGuests: demo.maxGuests,
+        bedrooms: demo.bedrooms,
+        bathrooms: demo.bathrooms,
+        amenities: demo.amenities,
+        images: demo.images.map((url) => ({ url })),
+        availabilityStatus: demo.availabilityStatus,
+        verificationStatus: demo.verificationStatus,
+        trustScore: demo.trustScore,
+        hostName: demo.hostName,
+        hostVerified: demo.hostVerified,
+        photosVerified: demo.photosVerified,
+        checkInTime: demo.checkInTime,
+        checkOutTime: demo.checkOutTime,
+        rules: demo.rules,
+        documentsSummary: { providedCount: 0, pendingCount: 0, verifiedCount: 0 },
+      },
+    };
+  }
 
   const dto = data.stay;
 

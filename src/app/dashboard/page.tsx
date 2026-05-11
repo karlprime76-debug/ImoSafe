@@ -1,13 +1,13 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 
 import { PropertyCard } from "@/components/properties/PropertyCard";
 import { SiteFooter } from "@/components/site/SiteFooter";
 import { SiteHeader } from "@/components/site/SiteHeader";
 import { DEMO_PROPERTIES } from "@/lib/demoData";
-import type { MockRole } from "@/lib/mockSession";
 import { useAuthMe } from "@/lib/useAuthMe";
 import {
   getBookings,
@@ -20,7 +20,8 @@ import {
 } from "@/lib/mockDataStore";
 
 export default function DashboardPage() {
-  const { user: session } = useAuthMe();
+  const router = useRouter();
+  const { user: session, loading } = useAuthMe();
   const [favoritesCount, setFavoritesCount] = useState(0);
   const [visitsCount, setVisitsCount] = useState(0);
   const [bookingsCount, setBookingsCount] = useState(0);
@@ -30,6 +31,11 @@ export default function DashboardPage() {
   const [recentIds, setRecentIds] = useState<string[]>([]);
 
   useEffect(() => {
+    if (!loading && session === null) {
+      router.replace("/login");
+      return;
+    }
+
     const read = () => {
       setFavoritesCount(getFavorites().propertyIds.length);
       setVisitsCount(getVisitRequests().length);
@@ -57,9 +63,11 @@ export default function DashboardPage() {
       window.removeEventListener("imosafe:draftProperties", read);
       window.removeEventListener("imosafe:recent", read);
     };
-  }, []);
+  }, [loading, router, session]);
 
-  const roleLabel = (role: MockRole | undefined) => {
+  type UserRole = "USER" | "OWNER" | "AGENCY" | "HOST" | "ADMIN";
+
+  const roleLabel = (role: UserRole | undefined) => {
     if (!role) return "Invité";
     if (role === "USER") return "Utilisateur";
     if (role === "OWNER") return "Propriétaire";

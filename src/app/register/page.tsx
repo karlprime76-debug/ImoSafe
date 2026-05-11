@@ -6,11 +6,12 @@ import { useState } from "react";
 
 import { SiteFooter } from "@/components/site/SiteFooter";
 import { SiteHeader } from "@/components/site/SiteHeader";
-import type { MockRole } from "@/lib/mockSession";
+
+type AccountType = "USER" | "OWNER" | "AGENCY" | "HOST";
 
 type RegisterSuccess = {
   ok: true;
-  user: { id: string; name: string; email: string; phone?: string | null; role: MockRole; createdAt: string };
+  user: { id: string; name: string; email: string; phone?: string | null; role: AccountType | "ADMIN"; createdAt: string };
 };
 
 type RegisterError = {
@@ -24,11 +25,12 @@ export default function RegisterPage() {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
-  const [role, setRole] = useState<MockRole>("USER");
+  const [role, setRole] = useState<AccountType>("USER");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [errorCode, setErrorCode] = useState<string | null>(null);
+  const [success, setSuccess] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
   return (
@@ -37,7 +39,7 @@ export default function RegisterPage() {
 
       <main className="mx-auto w-full max-w-md px-4 py-10 pb-24 sm:px-6">
         <h1 className="text-2xl font-extrabold tracking-tight">Créer un compte</h1>
-        <p className="mt-2 text-sm text-slate-600 dark:text-white/70">MVP: inscription mock (pas de DB).</p>
+        <p className="mt-2 text-sm text-slate-600 dark:text-white/70">Crée ton compte pour accéder à ton dashboard.</p>
 
         <form
           className="mt-6 grid gap-3 rounded-3xl border border-black/10 bg-white p-6 shadow-sm dark:border-white/10 dark:bg-white/5"
@@ -45,6 +47,7 @@ export default function RegisterPage() {
             e.preventDefault();
             setError(null);
             setErrorCode(null);
+            setSuccess(null);
 
             const normalized = email.trim().toLowerCase();
             if (!name.trim()) {
@@ -97,6 +100,8 @@ export default function RegisterPage() {
                   setError("Email déjà utilisé.");
                 } else if (code === "INVALID_PAYLOAD") {
                   setError("Informations invalides.");
+                } else if (code === "DB_UNAVAILABLE") {
+                  setError("Service indisponible. Réessayez.");
                 } else {
                   setError((data && !data.ok ? data.error?.message : undefined) || "Erreur serveur.");
                 }
@@ -104,7 +109,8 @@ export default function RegisterPage() {
               }
 
               void data.user;
-              router.push("/dashboard");
+              setSuccess("Compte créé. Tu peux maintenant te connecter.");
+              router.push("/login");
             } catch {
               setErrorCode("SERVER_ERROR");
               setError("Erreur serveur.");
@@ -151,7 +157,7 @@ export default function RegisterPage() {
             <select
               className="mt-1 h-11 w-full rounded-2xl border border-black/10 bg-white px-3 text-sm text-slate-900 shadow-sm outline-none focus:ring-2 focus:ring-emerald-500/30 dark:border-white/10 dark:bg-black/20 dark:text-white"
               value={role}
-              onChange={(e) => setRole(e.target.value as MockRole)}
+              onChange={(e) => setRole(e.target.value as AccountType)}
             >
               <option value="USER">Utilisateur</option>
               <option value="OWNER">Propriétaire</option>
@@ -190,6 +196,8 @@ export default function RegisterPage() {
               {error}
             </div>
           ) : null}
+
+          {success ? <div className="text-sm font-semibold text-emerald-700 dark:text-emerald-300">{success}</div> : null}
 
           <button
             type="submit"

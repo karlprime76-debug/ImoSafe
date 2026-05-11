@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { headers } from "next/headers";
 
 import { FavoriteButton } from "@/components/properties/FavoriteButton";
 import { PropertyGallery } from "@/components/properties/PropertyGallery";
@@ -21,7 +22,11 @@ export default async function PropertyDetailPage({
   const resolved = await Promise.resolve(params);
   const propertyId = decodeURIComponent(resolved.propertyId).trim();
 
-  const apiUrl = `${process.env.NEXT_PUBLIC_SITE_URL ?? ""}/api/public/properties/${encodeURIComponent(propertyId)}`;
+  const h = await headers();
+  const host = h.get("host");
+  const proto = h.get("x-forwarded-proto") ?? "http";
+  const baseUrl = host ? `${proto}://${host}` : "";
+  const apiUrl = `${baseUrl}/api/public/properties/${encodeURIComponent(propertyId)}`;
 
   type ApiResponse =
     | {

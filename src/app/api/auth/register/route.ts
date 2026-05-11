@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 
+import { Prisma } from "@prisma/client";
+
 import { prisma } from "@/lib/prisma";
 import { createSupabaseRouteClient } from "@/lib/supabaseServer";
 
@@ -29,7 +31,18 @@ function mapAccountTypeToRole(accountType: "USER" | "OWNER" | "AGENCY" | "HOST")
 export async function POST(req: Request) {
   try {
     console.info("[auth.register] request received");
-    const json = await req.json();
+
+    let json: unknown;
+    try {
+      json = await req.json();
+    } catch {
+      console.info("[auth.register] invalid json");
+      return NextResponse.json(
+        { ok: false, error: { code: "INVALID_PAYLOAD", message: "Payload invalide." } },
+        { status: 400, headers: { "cache-control": "no-store" } }
+      );
+    }
+
     const parsed = RegisterSchema.safeParse(json);
 
     console.info("[auth.register] validation ok", { ok: parsed.success });
@@ -55,16 +68,8 @@ export async function POST(req: Request) {
     console.info("[auth.register] accountType", { accountType });
     const role = mapAccountTypeToRole(accountType) as UserRoleValue;
 
-    const existing = await prisma.user.findUnique({ where: { email: normalizedEmail }, select: { id: true } });
-    console.info("[auth.register] email exists", { exists: Boolean(existing) });
-    if (existing) {
-      return NextResponse.json(
-        { ok: false, error: { code: "EMAIL_IN_USE", message: "Email déjà utilisé." } },
-        { status: 409, headers: { "cache-control": "no-store" } }
-      );
-    }
-
     const { supabase, getSetCookieHeaders } = createSupabaseRouteClient(req);
+
     const { data, error } = await supabase.auth.signUp({
       email: normalizedEmail,
       password,
@@ -79,6 +84,19 @@ export async function POST(req: Request) {
 
     if (error || !data.user?.id) {
       console.info("[auth.register] supabase signUp success", { success: false });
+      console.error("[auth/register] supabase signUp failed", {
+        name: error?.name,
+        message: error?.message,
+      });
+
+      const msg = (error?.message ?? "").toLowerCase();
+      if (msg.includes("already registered") || msg.includes("already exists") || msg.includes("user already")) {
+        return NextResponse.json(
+          { ok: false, error: { code: "EMAIL_IN_USE", message: "Email déjà utilisé." } },
+          { status: 409, headers: { "cache-control": "no-store" } }
+        );
+      }
+
       return NextResponse.json(
         { ok: false, error: { code: "AUTH_SIGNUP_FAILED", message: "Inscription impossible." } },
         { status: 400, headers: { "cache-control": "no-store" } }
@@ -99,8 +117,9 @@ export async function POST(req: Request) {
       | null = null;
 
     try {
-      user = await prisma.user.create({
-        data: {
+      user = await prisma.user.upsert({
+        where: { id: data.user.id },
+        create: {
           id: data.user.id,
           name: name.trim(),
           email: normalizedEmail,
@@ -108,17 +127,44 @@ export async function POST(req: Request) {
           role,
           passwordHash: "SUPABASE_AUTH",
         },
+        update: {
+          name: name.trim(),
+          email: normalizedEmail,
+          phone: phone.trim(),
+          role,
+        },
         select: { id: true, name: true, email: true, phone: true, role: true, createdAt: true },
       });
-      console.info("[auth.register] create user success", { success: true });
-    } catch {
-      console.info("[auth.register] create user success", { success: false });
+      console.info("[auth.register] upsert user success", { success: true });
+    } catch (error) {
+      const isInit = error instanceof Prisma.PrismaClientInitializationError;
+      const isRust = error instanceof Prisma.PrismaClientRustPanicError;
+
+      console.info("[auth.register] upsert user success", { success: false });
+
+      if (isInit || isRust) {
+        console.error("[auth/register] prisma", {
+          name: (error as { name?: string }).name,
+          message: (error as { message?: string }).message,
+        });
+        return NextResponse.json(
+          { ok: false, error: { code: "DB_UNAVAILABLE", message: "Service indisponible. Réessayez." } },
+          { status: 503, headers: { "cache-control": "no-store" } }
+        );
+      }
+
+      if (error instanceof Error) {
+        console.error("[auth/register] user profile create failed", { name: error.name, message: error.message });
+      } else {
+        console.error("[auth/register] user profile create failed", { value: String(error) });
+      }
+
       return NextResponse.json(
         {
           ok: false,
           error: {
-            code: "USER_CREATE_FAILED",
-            message: "Inscription impossible (création du profil).",
+            code: "USER_PROFILE_CREATE_FAILED",
+            message: "Compte créé, mais profil indisponible. Réessayez.",
           },
         },
         { status: 500, headers: { "cache-control": "no-store" } }
@@ -129,11 +175,25 @@ export async function POST(req: Request) {
     for (const c of getSetCookieHeaders()) headers.append("set-cookie", c);
 
     return NextResponse.json({ ok: true, user }, { headers });
-  } catch {
+  } catch (error) {
+    if (error instanceof Prisma.PrismaClientInitializationError || error instanceof Prisma.PrismaClientRustPanicError) {
+      console.error("[auth/register] prisma", { name: error.name, message: error.message });
+      return NextResponse.json(
+        { ok: false, error: { code: "DB_UNAVAILABLE", message: "Service indisponible. Réessayez." } },
+        { status: 503, headers: { "cache-control": "no-store" } }
+      );
+    }
+
+    if (error instanceof Error) {
+      console.error("[auth/register] unknown", { name: error.name, message: error.message });
+    } else {
+      console.error("[auth/register] unknown", { value: String(error) });
+    }
+
     console.info("[auth.register] server error");
     return NextResponse.json(
       { ok: false, error: { code: "SERVER_ERROR", message: "Erreur serveur." } },
-      { status: 500 }
+      { status: 500, headers: { "cache-control": "no-store" } }
     );
   }
 }

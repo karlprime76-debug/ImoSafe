@@ -7,9 +7,15 @@ import { SiteFooter } from "@/components/site/SiteFooter";
 import { SiteHeader } from "@/components/site/SiteHeader";
 import { IMOSAFE_CONTACT } from "@/lib/imosafeContact";
 
+type ForgotPasswordSuccess = { ok: true; message?: string };
+type ForgotPasswordError = { ok: false; error?: { code?: string; message?: string } };
+
 export default function ForgotPasswordPage() {
   const [email, setEmail] = useState("");
   const [submitted, setSubmitted] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [errorCode, setErrorCode] = useState<string | null>(null);
 
   const whatsappHref = useMemo(() => IMOSAFE_CONTACT.whatsappUrl, []);
 
@@ -25,9 +31,44 @@ export default function ForgotPasswordPage() {
 
         <form
           className="mt-6 grid gap-3 rounded-3xl border border-black/10 bg-white p-6 shadow-sm dark:border-white/10 dark:bg-white/5"
-          onSubmit={(e) => {
+          onSubmit={async (e) => {
             e.preventDefault();
-            setSubmitted(true);
+            setError(null);
+            setErrorCode(null);
+
+            const normalized = email.trim().toLowerCase();
+            if (!normalized.includes("@")) {
+              setError("Email invalide.");
+              return;
+            }
+
+            try {
+              setLoading(true);
+              const res = await fetch("/api/auth/forgot-password", {
+                method: "POST",
+                headers: { "content-type": "application/json" },
+                body: JSON.stringify({ email: normalized }),
+              });
+
+              const contentType = res.headers.get("content-type") ?? "";
+              const data = contentType.includes("application/json")
+                ? ((await res.json()) as ForgotPasswordSuccess | ForgotPasswordError)
+                : null;
+
+              if (!res.ok || !data || !data.ok) {
+                const code = data && !data.ok ? data.error?.code : undefined;
+                setErrorCode(code ?? null);
+                setError((data && !data.ok ? data.error?.message : undefined) || "Erreur serveur.");
+                return;
+              }
+
+              setSubmitted(true);
+            } catch {
+              setErrorCode("SERVER_ERROR");
+              setError("Erreur serveur.");
+            } finally {
+              setLoading(false);
+            }
           }}
         >
           <div>
@@ -42,17 +83,29 @@ export default function ForgotPasswordPage() {
             />
           </div>
 
+          {error ? (
+            <div className="text-sm font-semibold text-rose-700 dark:text-rose-300">
+              {errorCode ? (
+                <span className="mr-2 inline-flex rounded-full bg-rose-500/10 px-2 py-0.5 text-[11px] font-extrabold">
+                  {errorCode}
+                </span>
+              ) : null}
+              {error}
+            </div>
+          ) : null}
+
           {submitted ? (
             <div className="text-sm font-semibold text-emerald-700 dark:text-emerald-300">
-              Demande reçue. L’équipe ImoSafe vous contactera pour la réinitialisation.
+              Si un compte existe pour cet email, un lien de réinitialisation sera envoyé.
             </div>
           ) : null}
 
           <button
             type="submit"
+            disabled={loading}
             className="inline-flex h-11 items-center justify-center rounded-2xl bg-[#0B2A4A] px-4 text-sm font-semibold text-white shadow-sm transition hover:opacity-95"
           >
-            Envoyer la demande
+            {loading ? "Envoi..." : "Envoyer la demande"}
           </button>
 
           <a
